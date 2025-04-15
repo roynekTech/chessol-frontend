@@ -1,18 +1,29 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Chess, Square } from "chess.js";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Crown, Clock, RotateCw, Trophy, ArrowLeft } from "lucide-react";
 import * as React from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+import { StockfishService } from "../services/stockfishService";
+import { estimateElo } from "../utils/chessUtils";
 
 // Simplified chess board component to avoid TypeScript issues with chess.js
 export function ChessGame() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+
+  // Get game settings from URL parameters
+  const initialMode = queryParams.get("mode") || "player";
+  const computerColor = queryParams.get("computerColor") || "b";
+  const initialDifficulty = Number(queryParams.get("difficulty") || 10);
+
+  const [gameMode, setGameMode] = useState(initialMode);
   const [game] = useState(new Chess());
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
   const [validMoves, setValidMoves] = useState<string[]>([]);
-  const [currentPlayer, setCurrentPlayer] = useState<string>(game.turn());
+  const [currentPlayer, setCurrentPlayer] = useState<"w" | "b">("w");
   const [gameStatus, setGameStatus] = useState("");
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
   const [capturedPieces, setCapturedPieces] = useState({
@@ -29,6 +40,37 @@ export function ChessGame() {
 
   // Add FEN state back
   const [fen, setFen] = useState(game.fen());
+  const [difficulty, setDifficulty] = useState<number>(initialDifficulty);
+  const [isThinking, setIsThinking] = useState<boolean>(false);
+
+  // Move trail animation
+  const [moveTrail, setMoveTrail] = useState<{
+    from: string;
+    to: string;
+  } | null>(null);
+
+  // Initialize Stockfish service
+  const stockfish = useMemo(() => new StockfishService(), []);
+
+  // Check if Stockfish API is available
+  useEffect(() => {
+    const checkStockfish = async () => {
+      try {
+        const available = await stockfish.isAvailable();
+        if (!available && gameMode === "computer") {
+          console.warn(
+            "Stockfish API is not available, falling back to human mode"
+          );
+          setGameMode("human");
+        }
+      } catch (error) {
+        console.error("Error checking Stockfish availability:", error);
+        setGameMode("human");
+      }
+    };
+
+    checkStockfish();
+  }, [stockfish, gameMode]);
 
   // Format time from seconds to MM:SS
   const formatTime = (seconds: number) => {
@@ -73,7 +115,7 @@ export function ChessGame() {
   const updateGameStatus = useCallback(() => {
     // Update FEN
     setFen(game.fen());
-    setCurrentPlayer(game.turn());
+    setCurrentPlayer(game.turn() as "w" | "b");
 
     if (game.isCheckmate()) {
       setGameStatus(
@@ -96,6 +138,85 @@ export function ChessGame() {
     setMoveHistory(game.history());
   }, [game]);
 
+  // Handle move trail animation
+  useEffect(() => {
+    if (moveTrail) {
+      const timer = setTimeout(() => {
+        setMoveTrail(null);
+      }, 2000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [moveTrail]);
+
+  // Computer move function
+  const getComputerMove = useCallback(async () => {
+    if (
+      gameMode !== "computer" ||
+      (computerColor === "w" && currentPlayer === "b") ||
+      (computerColor === "b" && currentPlayer === "w")
+    ) {
+      return;
+    }
+
+    setIsThinking(true);
+
+    try {
+      // Add a small delay to simulate "thinking"
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Get move from Stockfish
+      const move = await stockfish.makeMove(game, {
+        depth: difficulty,
+        skill: difficulty,
+      });
+
+      if (move) {
+        // Show move trail animation
+        setMoveTrail({
+          from: move.from,
+          to: move.to,
+        });
+
+        // Check for captures
+        if (move.captured) {
+          const capturedPiece = {
+            type: move.captured,
+            color: move.color === "w" ? "b" : "w",
+          };
+          setCapturedPieces((prev) => ({
+            ...prev,
+            [move.color]: [
+              ...prev[move.color as keyof typeof prev],
+              capturedPiece,
+            ],
+          }));
+        }
+
+        // Switch active timer
+        setActiveTimer(game.turn() as string);
+
+        // Update game status
+        updateGameStatus();
+      }
+    } catch (error) {
+      console.error("Error getting computer move:", error);
+    } finally {
+      setIsThinking(false);
+    }
+  }, [game, gameMode, computerColor, difficulty, stockfish, updateGameStatus]);
+
+  // Trigger computer move when it's the computer's turn
+  useEffect(() => {
+    if (
+      gameMode === "computer" &&
+      ((computerColor === "w" && currentPlayer === "w") ||
+        (computerColor === "b" && currentPlayer === "b"))
+    ) {
+      getComputerMove();
+    }
+  }, [currentPlayer, computerColor, gameMode, getComputerMove]);
+
   // Initialize the game state
   useEffect(() => {
     updateGameStatus();
@@ -104,8 +225,12 @@ export function ChessGame() {
   // Handle square click
   const handleSquareClick = (square: string) => {
     try {
-      // Return early if game is over
-      if (game.isGameOver()) return;
+      // Return early if game is over or if it's the computer's turn
+      if (
+        game.isGameOver() ||
+        (gameMode === "computer" && game.turn() === computerColor)
+      )
+        return;
 
       if (selectedSquare) {
         // Try to make a move
@@ -117,6 +242,12 @@ export function ChessGame() {
           });
 
           if (move) {
+            // Add move trail animation
+            setMoveTrail({
+              from: selectedSquare,
+              to: square,
+            });
+
             // Check for captures
             if (move.captured) {
               const capturedPiece = {
@@ -137,7 +268,7 @@ export function ChessGame() {
             setValidMoves([]);
 
             // Switch active timer
-            setActiveTimer(game.turn());
+            setActiveTimer(game.turn() as string);
 
             // Update game status
             updateGameStatus();
@@ -234,12 +365,21 @@ export function ChessGame() {
 
               // Determine if square needs highlighting
               let highlightClass = "";
+
+              // Track the move trail
+              const isFromSquare = moveTrail && moveTrail.from === squareId;
+              const isToSquare = moveTrail && moveTrail.to === squareId;
+
               if (selectedSquare === squareId) {
                 highlightClass = "ring-4 ring-yellow-400 z-10";
               } else if (validMoves.includes(squareId)) {
                 highlightClass = piece
                   ? "ring-4 ring-red-500 z-10"
                   : "after:content-[''] after:absolute after:inset-0 after:m-auto after:w-3 after:h-3 after:rounded-full after:bg-gray-500/60";
+              } else if (isFromSquare) {
+                highlightClass = "bg-blue-500/50";
+              } else if (isToSquare) {
+                highlightClass = "bg-green-500/50";
               }
 
               // Check if this square was part of the last move
@@ -249,7 +389,9 @@ export function ChessGame() {
                   : null;
               if (
                 lastMove &&
-                (lastMove.from === squareId || lastMove.to === squareId)
+                (lastMove.from === squareId || lastMove.to === squareId) &&
+                !isFromSquare &&
+                !isToSquare // Don't override move trail highlights
               ) {
                 highlightClass += " bg-yellow-400/30";
               }
@@ -298,19 +440,6 @@ export function ChessGame() {
     );
   };
 
-  // Action buttons
-  const restartGame = () => {
-    game.reset();
-    setSelectedSquare(null);
-    setValidMoves([]);
-    setCapturedPieces({ w: [], b: [] });
-    setCurrentPlayer("w");
-    setActiveTimer("w");
-    setTimers({ w: 600, b: 600 });
-    setFen(game.fen());
-    updateGameStatus();
-  };
-
   // Create a component for the move history display that alternates white and black moves
   const MoveHistoryDisplay = () => {
     if (moveHistory.length === 0) {
@@ -355,6 +484,27 @@ export function ChessGame() {
     );
   };
 
+  // Action buttons
+  const restartGame = () => {
+    game.reset();
+    setSelectedSquare(null);
+    setValidMoves([]);
+    setCapturedPieces({ w: [], b: [] });
+    setCurrentPlayer("w");
+    setActiveTimer("w");
+    setTimers({ w: 600, b: 600 });
+    setFen(game.fen());
+    setMoveTrail(null);
+    updateGameStatus();
+
+    // Start computer move if computer plays as white
+    if (gameMode === "computer" && computerColor === "w") {
+      setTimeout(() => {
+        getComputerMove();
+      }, 1000);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-950 to-black text-white flex flex-col items-center justify-center p-4">
       <div className="container max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -363,10 +513,42 @@ export function ChessGame() {
           <Button
             variant="ghost"
             onClick={() => navigate("/")}
-            className="text-gray-300 hover:text-black"
+            className="text-gray-300 hover:text-white"
           >
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to Home
           </Button>
+        </div>
+
+        {/* Game information display */}
+        <div className="absolute top-4 right-4 z-20">
+          <div className="bg-black/50 p-3 rounded-lg shadow-lg">
+            <div className="grid grid-cols-1 gap-2">
+              <div className="text-sm">
+                <span className="text-gray-400">Mode:</span>{" "}
+                <span className="font-semibold">
+                  {gameMode === "human" ? "Human vs Human" : "Play vs Computer"}
+                </span>
+              </div>
+
+              {gameMode === "computer" && (
+                <>
+                  <div className="text-sm">
+                    <span className="text-gray-400">Playing as:</span>{" "}
+                    <span className="font-semibold">
+                      {computerColor === "b" ? "White" : "Black"}
+                    </span>
+                  </div>
+
+                  <div className="text-sm">
+                    <span className="text-gray-400">Computer ELO:</span>{" "}
+                    <span className="font-semibold">
+                      ~{estimateElo(difficulty)}
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Left panel - Black player */}
@@ -484,6 +666,16 @@ export function ChessGame() {
                 {gameStatus}
               </div>
             </div>
+
+            {/* Thinking indicator */}
+            {isThinking && (
+              <div className="absolute -top-20 left-0 right-0 text-center z-20">
+                <div className="px-4 py-2 rounded-full inline-flex items-center gap-2 bg-blue-600/80">
+                  <div className="w-3 h-3 bg-white rounded-full animate-pulse"></div>
+                  <span>Computer is thinking...</span>
+                </div>
+              </div>
+            )}
 
             {/* Chess board rendered dynamically */}
             {renderBoard()}
