@@ -69,7 +69,9 @@ export class StockfishService {
   ): Promise<Move | null> {
     try {
       const fen = game.fen();
+      console.log("Requesting move for position:", fen);
       const moveData = await this.getBestMove(fen, options);
+      console.log("Received move data:", moveData);
 
       const move = game.move({
         from: moveData.from,
@@ -77,6 +79,7 @@ export class StockfishService {
         promotion: moveData.promotion as "q" | "r" | "b" | "n" | undefined,
       });
 
+      console.log("Applied move:", move);
       return move;
     } catch (error) {
       console.error("Error making Stockfish move:", error);
@@ -90,8 +93,10 @@ export class StockfishService {
    */
   async isAvailable(): Promise<boolean> {
     try {
+      console.log("Checking Stockfish API availability...");
       const response = await fetch(`${this.apiUrl}/api/health`);
       const data = await response.json();
+      console.log("Stockfish API health check response:", data);
       return data.status === "ok";
     } catch (error) {
       console.error("Stockfish API is not available:", error);

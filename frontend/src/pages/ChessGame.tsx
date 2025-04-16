@@ -15,7 +15,7 @@ export function ChessGame() {
   const queryParams = new URLSearchParams(location.search);
 
   // Get game settings from URL parameters
-  const initialMode = queryParams.get("mode") || "player";
+  const initialMode = queryParams.get("mode") || "computer";
   const computerColor = queryParams.get("computerColor") || "b";
   const initialDifficulty = Number(queryParams.get("difficulty") || 10);
 
@@ -151,11 +151,18 @@ export function ChessGame() {
 
   // Computer move function
   const getComputerMove = useCallback(async () => {
-    if (
-      gameMode !== "computer" ||
-      (computerColor === "w" && currentPlayer === "b") ||
-      (computerColor === "b" && currentPlayer === "w")
-    ) {
+    console.log(
+      "getComputerMove called, gameMode:",
+      gameMode,
+      "computerColor:",
+      computerColor,
+      "currentPlayer:",
+      currentPlayer
+    );
+
+    // Corrected logic: Computer should play when it's the computer's color's turn
+    if (gameMode !== "computer" || currentPlayer !== computerColor) {
+      console.log("Not computer's turn or not in computer mode");
       return;
     }
 
@@ -166,10 +173,12 @@ export function ChessGame() {
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       // Get move from Stockfish
+      console.log("Requesting computer move for game:", game.fen());
       const move = await stockfish.makeMove(game, {
         depth: difficulty,
         skill: difficulty,
       });
+      console.log("Computer move result:", move);
 
       if (move) {
         // Show move trail animation
@@ -198,21 +207,37 @@ export function ChessGame() {
 
         // Update game status
         updateGameStatus();
+      } else {
+        console.error("Computer did not return a valid move");
       }
     } catch (error) {
       console.error("Error getting computer move:", error);
     } finally {
       setIsThinking(false);
     }
-  }, [game, gameMode, computerColor, difficulty, stockfish, updateGameStatus]);
+  }, [
+    game,
+    gameMode,
+    computerColor,
+    currentPlayer,
+    difficulty,
+    stockfish,
+    updateGameStatus,
+  ]);
 
   // Trigger computer move when it's the computer's turn
   useEffect(() => {
-    if (
-      gameMode === "computer" &&
-      ((computerColor === "w" && currentPlayer === "w") ||
-        (computerColor === "b" && currentPlayer === "b"))
-    ) {
+    console.log(
+      "Move trigger effect - gameMode:",
+      gameMode,
+      "computerColor:",
+      computerColor,
+      "currentPlayer:",
+      currentPlayer
+    );
+
+    if (gameMode === "computer" && computerColor === currentPlayer) {
+      console.log("Computer's turn, triggering move...");
       getComputerMove();
     }
   }, [currentPlayer, computerColor, gameMode, getComputerMove]);
@@ -507,130 +532,50 @@ export function ChessGame() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-950 to-black text-white flex flex-col items-center justify-center p-4">
+      {/* Game header - more mobile friendly */}
+      <div className="w-full max-w-6xl mx-auto mb-4 flex flex-col sm:flex-row justify-between items-center">
+        <Button
+          variant="ghost"
+          onClick={() => navigate("/")}
+          className="text-gray-300 hover:text-black mb-4 sm:mb-0"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back
+        </Button>
+
+        <div className="bg-black/50 p-3 rounded-lg shadow-lg mb-4 sm:mb-0">
+          <div className="grid grid-cols-1 gap-2">
+            <div className="text-sm">
+              <span className="text-gray-400">Mode:</span>{" "}
+              <span className="font-semibold">
+                {gameMode === "human" ? "Human vs Human" : "Play vs Computer"}
+              </span>
+            </div>
+
+            {gameMode === "computer" && (
+              <>
+                <div className="text-sm">
+                  <span className="text-gray-400">Playing as:</span>{" "}
+                  <span className="font-semibold">
+                    {computerColor === "b" ? "White" : "Black"}
+                  </span>
+                </div>
+
+                <div className="text-sm">
+                  <span className="text-gray-400">Computer ELO:</span>{" "}
+                  <span className="font-semibold">
+                    ~{estimateElo(difficulty)}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Main content container */}
       <div className="container max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Back to home button */}
-        <div className="absolute top-4 left-4">
-          <Button
-            variant="ghost"
-            onClick={() => navigate("/")}
-            className="text-gray-300 hover:text-white"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Home
-          </Button>
-        </div>
-
-        {/* Game information display */}
-        <div className="absolute top-4 right-4 z-20">
-          <div className="bg-black/50 p-3 rounded-lg shadow-lg">
-            <div className="grid grid-cols-1 gap-2">
-              <div className="text-sm">
-                <span className="text-gray-400">Mode:</span>{" "}
-                <span className="font-semibold">
-                  {gameMode === "human" ? "Human vs Human" : "Play vs Computer"}
-                </span>
-              </div>
-
-              {gameMode === "computer" && (
-                <>
-                  <div className="text-sm">
-                    <span className="text-gray-400">Playing as:</span>{" "}
-                    <span className="font-semibold">
-                      {computerColor === "b" ? "White" : "Black"}
-                    </span>
-                  </div>
-
-                  <div className="text-sm">
-                    <span className="text-gray-400">Computer ELO:</span>{" "}
-                    <span className="font-semibold">
-                      ~{estimateElo(difficulty)}
-                    </span>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Left panel - Black player */}
-        <div className="bg-black/30 rounded-lg p-4 flex flex-col">
-          <div className="flex items-center mb-4">
-            <div className="bg-black rounded-full w-12 h-12 flex items-center justify-center text-white mr-4">
-              <Crown
-                className={`w-6 h-6 ${
-                  currentPlayer === "b" ? "text-yellow-400" : "text-gray-500"
-                }`}
-              />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-bold text-lg">Black Player</h3>
-              <div className="flex items-center">
-                <Clock className="w-4 h-4 mr-2 text-red-400" />
-                <span
-                  className={`${
-                    timers.b < 60 ? "text-red-500" : "text-gray-300"
-                  }`}
-                >
-                  {formatTime(timers.b)}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Captured pieces by Black */}
-          <div className="mb-4">
-            <h4 className="text-sm text-gray-400 mb-2">Captured Pieces</h4>
-            <div className="flex flex-wrap gap-1">
-              {capturedPieces.b.map((piece, idx) => (
-                <motion.div
-                  key={idx}
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  className="w-8 h-8"
-                >
-                  <img
-                    src={getPieceImage(piece)}
-                    alt={`${piece.color}${piece.type}`}
-                    className="w-full h-full object-contain"
-                  />
-                </motion.div>
-              ))}
-            </div>
-          </div>
-
-          {/* Move history for Black */}
-          <div className="flex-1 overflow-hidden">
-            <h4 className="text-sm text-gray-400 mb-2">Move History</h4>
-            <div className="bg-black/40 rounded p-2 max-h-48 overflow-y-auto scrollbar-thin scrollbar-track-black/20 scrollbar-thumb-gray-700">
-              <MoveHistoryDisplay />
-            </div>
-          </div>
-
-          {/* Game controls on mobile only */}
-          <div className="flex mt-auto gap-2 lg:hidden">
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1 text-gray-300 border-gray-700"
-              onClick={restartGame}
-            >
-              <RotateCw className="w-4 h-4 mr-1" /> Restart
-            </Button>
-          </div>
-
-          {/* Game controls - desktop only */}
-          <div className="mt-4 gap-2 hidden lg:flex">
-            <Button
-              variant="default"
-              className="flex-1 bg-gradient-to-r from-amber-500 to-orange-600 text-white"
-              onClick={restartGame}
-            >
-              <RotateCw className="w-4 h-4 mr-2" /> Restart Game
-            </Button>
-          </div>
-        </div>
-
-        {/* Center - Chess board */}
-        <div className="lg:col-span-1 order-first lg:order-none mb-6 lg:mb-0">
+        {/* Center - Chess board - prioritized on mobile */}
+        <div className="lg:col-span-1 lg:order-2 mb-6 lg:mb-0">
           <div className="aspect-square mx-auto relative max-w-xl">
             {/* Game status banner */}
             <AnimatePresence>
@@ -654,7 +599,7 @@ export function ChessGame() {
               )}
             </AnimatePresence>
 
-            {/* Status bar */}
+            {/* Status bar - improved position */}
             <div className="absolute -top-10 left-0 right-0 text-center">
               <div
                 className={`px-4 py-1 rounded-full inline-block ${
@@ -680,25 +625,106 @@ export function ChessGame() {
             {/* Chess board rendered dynamically */}
             {renderBoard()}
 
-            {/* FEN Display */}
-            <div className="mt-4 text-xs text-gray-400 overflow-x-auto whitespace-nowrap">
+            {/* Mobile-friendly restart controls */}
+            <div className="mt-4 flex justify-center lg:hidden">
+              <Button
+                variant="default"
+                className="bg-gradient-to-r from-amber-500 to-orange-600 text-white px-8 py-2"
+                onClick={restartGame}
+              >
+                <RotateCw className="w-4 h-4 mr-2" /> Restart
+              </Button>
+            </div>
+
+            {/* FEN Display - hidden on mobile */}
+            <div className="mt-4 hidden sm:block text-xs text-gray-400 overflow-x-auto whitespace-nowrap">
               <div className="font-mono bg-black/40 p-2 rounded">{fen}</div>
             </div>
           </div>
         </div>
 
-        {/* Right panel - White player and moves */}
-        <div className="bg-black/30 rounded-lg p-4 flex flex-col">
+        {/* Left panel - Black player - improved mobile layout */}
+        <div className="bg-black/30 rounded-lg p-4 lg:order-1 flex flex-col">
           <div className="flex items-center mb-4">
-            <div className="bg-white rounded-full w-12 h-12 flex items-center justify-center text-black mr-4">
+            <div className="bg-black rounded-full w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center text-white mr-3 sm:mr-4">
               <Crown
-                className={`w-6 h-6 ${
+                className={`w-5 h-5 sm:w-6 sm:h-6 ${
+                  currentPlayer === "b" ? "text-yellow-400" : "text-gray-500"
+                }`}
+              />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-bold text-base sm:text-lg">Black Player</h3>
+              <div className="flex items-center">
+                <Clock className="w-4 h-4 mr-2 text-red-400" />
+                <span
+                  className={`${
+                    timers.b < 60 ? "text-red-500" : "text-gray-300"
+                  }`}
+                >
+                  {formatTime(timers.b)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Captured pieces by Black - more compact on mobile */}
+          <div className="mb-3 sm:mb-4">
+            <h4 className="text-xs sm:text-sm text-gray-400 mb-1 sm:mb-2">
+              Captured
+            </h4>
+            <div className="flex flex-wrap gap-1">
+              {capturedPieces.b.map((piece, idx) => (
+                <motion.div
+                  key={idx}
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="w-6 h-6 sm:w-8 sm:h-8"
+                >
+                  <img
+                    src={getPieceImage(piece)}
+                    alt={`${piece.color}${piece.type}`}
+                    className="w-full h-full object-contain"
+                  />
+                </motion.div>
+              ))}
+            </div>
+          </div>
+
+          {/* Move history for Black - responsive height */}
+          <div className="flex-1 overflow-hidden">
+            <h4 className="text-xs sm:text-sm text-gray-400 mb-1 sm:mb-2">
+              Moves
+            </h4>
+            <div className="bg-black/40 rounded p-2 max-h-32 sm:max-h-48 overflow-y-auto scrollbar-thin scrollbar-track-black/20 scrollbar-thumb-gray-700">
+              <MoveHistoryDisplay />
+            </div>
+          </div>
+
+          {/* Game controls - desktop only */}
+          <div className="mt-4 gap-2 hidden lg:flex">
+            <Button
+              variant="default"
+              className="flex-1 bg-gradient-to-r from-amber-500 to-orange-600 text-white"
+              onClick={restartGame}
+            >
+              <RotateCw className="w-4 h-4 mr-2" /> Restart
+            </Button>
+          </div>
+        </div>
+
+        {/* Right panel - White player - improved mobile layout */}
+        <div className="bg-black/30 rounded-lg p-4 lg:order-3 flex flex-col">
+          <div className="flex items-center mb-4">
+            <div className="bg-white rounded-full w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center text-black mr-3 sm:mr-4">
+              <Crown
+                className={`w-5 h-5 sm:w-6 sm:h-6 ${
                   currentPlayer === "w" ? "text-yellow-400" : "text-gray-500"
                 }`}
               />
             </div>
             <div className="flex-1">
-              <h3 className="font-bold text-lg">White Player</h3>
+              <h3 className="font-bold text-base sm:text-lg">White Player</h3>
               <div className="flex items-center">
                 <Clock className="w-4 h-4 mr-2 text-red-400" />
                 <span
@@ -712,16 +738,18 @@ export function ChessGame() {
             </div>
           </div>
 
-          {/* Captured pieces by White */}
-          <div className="mb-4">
-            <h4 className="text-sm text-gray-400 mb-2">Captured Pieces</h4>
+          {/* Captured pieces by White - more compact on mobile */}
+          <div className="mb-3 sm:mb-4">
+            <h4 className="text-xs sm:text-sm text-gray-400 mb-1 sm:mb-2">
+              Captured
+            </h4>
             <div className="flex flex-wrap gap-1">
               {capturedPieces.w.map((piece, idx) => (
                 <motion.div
                   key={idx}
                   initial={{ scale: 0, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
-                  className="w-8 h-8"
+                  className="w-6 h-6 sm:w-8 sm:h-8"
                 >
                   <img
                     src={getPieceImage(piece)}
@@ -733,10 +761,12 @@ export function ChessGame() {
             </div>
           </div>
 
-          {/* Move history for White */}
+          {/* Move history for White - responsive height */}
           <div className="flex-1 overflow-hidden">
-            <h4 className="text-sm text-gray-400 mb-2">Move History</h4>
-            <div className="bg-black/40 rounded p-2 h-48 overflow-y-auto scrollbar-thin scrollbar-track-black/20 scrollbar-thumb-gray-700">
+            <h4 className="text-xs sm:text-sm text-gray-400 mb-1 sm:mb-2">
+              Moves
+            </h4>
+            <div className="bg-black/40 rounded p-2 max-h-32 sm:max-h-48 overflow-y-auto scrollbar-thin scrollbar-track-black/20 scrollbar-thumb-gray-700">
               <MoveHistoryDisplay />
             </div>
           </div>
@@ -748,7 +778,7 @@ export function ChessGame() {
               className="flex-1 bg-gradient-to-r from-amber-500 to-orange-600 text-white"
               onClick={restartGame}
             >
-              <RotateCw className="w-4 h-4 mr-2" /> Restart Game
+              <RotateCw className="w-4 h-4 mr-2" /> Restart
             </Button>
           </div>
         </div>
