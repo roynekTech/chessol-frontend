@@ -1,0 +1,110 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+ # Chessol Project-Wide Guidelines
+
+## Project Overview
+Chessol is a modern chess application with Solana blockchain integration, comprising a React frontend and Node.js backend. The app allows users to play chess games, spectate ongoing matches, and integrates with the Solana blockchain for future functionalities like NFTs and tournament staking.
+
+## Git Workflow
+
+### Branching Strategy
+- `main`: Production-ready code
+- `develop`: Integration branch for features
+- `feature/*`: New features and enhancements
+- `bugfix/*`: Bug fixes
+- `release/*`: Release preparation
+- `hotfix/*`: Urgent production fixes
+
+### Commit Conventions
+- Follow Conventional Commits format: `type(scope): description`
+- Types: `feat`, `fix`, `refactor`, `docs`, `style`, `test`, `chore`
+- Keep commits focused and atomic
+- Include ticket/issue references where applicable
+
+## Code Quality Standards
+
+### Naming Conventions
+- Use descriptive names that reveal intent
+- Be consistent with casing conventions:
+  - camelCase for variables, functions, methods
+  - PascalCase for classes, interfaces, types, components
+  - UPPER_SNAKE_CASE for constants
+
+### Documentation
+- Comment complex logic and business rules
+- Document public APIs and interfaces
+- Keep comments up-to-date with code changes
+- Use JSDoc/TSDoc for functions and classes
+
+### Testing
+- Write unit tests for business logic
+- Cover edge cases and error scenarios
+- Mock external dependencies
+- Aim for high test coverage on critical paths
+
+## Solana Integration Guidelines
+
+### Wallet Handling
+- Support multiple wallet adapters
+- Handle connection state properly
+- Provide clear feedback for transaction states
+- Secure management of wallet connections
+
+### Blockchain Interactions
+- Optimize for minimal transaction costs
+- Handle network congestion gracefully
+- Provide fallback mechanisms for failed transactions
+- Cache blockchain data where appropriate
+
+## Project Architecture
+
+### Frontend-Backend Communication
+- Well-defined API contracts
+- Consistent error handling
+- Proper authentication flow
+- Real-time updates through WebSockets for game state
+
+### Data Flow
+- Unidirectional data flow in UI components
+- Clear separation of concerns
+- Minimize shared state
+- Use appropriate state management based on scope
+
+## Performance Best Practices
+- Optimize bundle sizes
+- Implement code splitting
+- Use memoization for expensive calculations
+- Optimize assets (images, fonts, etc.)
+- Implement proper caching strategies
+
+## Accessibility Standards
+- Follow WCAG 2.1 AA guidelines
+- Ensure keyboard navigation
+- Provide appropriate ARIA attributes
+- Test with screen readers
+- Support different viewport sizes and orientations
+
+## Improvement Prompt
+This project-wide cursor rule should be continuously updated as the project evolves. When implementing new architectural decisions or project-wide patterns, please update this file with:
+
+1. New architectural decisions that affect both frontend and backend
+2. Updated project structure guidelines
+3. New integration patterns between frontend and backend
+4. Additional security considerations that span the entire application
+5. Project-wide tooling or process changes
+6. Documentation for cross-cutting concerns
+7. Solana blockchain integration strategies that affect both frontend and backend
+
+By keeping this guide updated, we ensure consistent development practices across the team and maintain high-quality code standards as the project grows.
+
+## Related Rules
+For more specific guidelines, please refer to:
+- Frontend specific guidelines: `frontend/.cursor/rules/base.mdc`
+- Backend specific guidelines: `backend/.cursor/rules/base.mdc`
+
+
+
+

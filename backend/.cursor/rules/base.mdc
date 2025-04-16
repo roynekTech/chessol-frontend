@@ -1,0 +1,104 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Chessol Backend Guidelines
+
+## Project Overview
+Chessol's backend provides a REST API for chess game functionalities, including Stockfish engine integration for AI moves, game state management, and future Solana blockchain integration.
+
+## Architecture
+
+### API Structure
+- RESTful API design principles
+- Express.js as the primary web framework
+- TypeScript for type safety across the entire codebase
+- Clean separation between routes, controllers, services, and models
+
+### Code Organization
+- `/src`: Main source directory
+  - `/controllers`: Request handlers
+  - `/services`: Business logic
+  - `/models`: Data models and types
+  - `/routes`: API route definitions
+  - `/middleware`: Express middleware
+  - `/utils`: Utility functions
+  - `/config`: Configuration files
+
+## Coding Standards
+
+### API Response Format
+- Consistent JSON response format:
+  ```typescript
+  {
+    status: 'success' | 'error',
+    data?: any,
+    error?: { message: string, code: string }
+  }
+  ```
+- Appropriate HTTP status codes (200, 201, 400, 401, 404, 500)
+- Comprehensive error handling with descriptive messages
+
+### Error Handling
+- Centralized error handling middleware
+- Custom error classes for different error types
+- Structured logging for debugging
+
+### Authentication & Authorization
+- JWT-based authentication
+- Role-based access control for protected endpoints
+- Secure token management
+
+## Chess Engine Integration
+
+### Stockfish Engine
+- Node-UCI for Stockfish communication
+- Configurable depth and skill level parameters
+- Proper engine resource management (initialization and termination)
+- Error handling for engine failures
+
+## Planned Solana Integration
+
+### Wallet Integration
+- Solana Web3.js for blockchain interactions
+- Secure key management
+- Transaction signing and verification
+
+### Smart Contract Interactions
+- NFT minting for chess pieces and boards
+- Tournament contract integration
+- Staking functionalities for competitive play
+
+## Performance Considerations
+- Proper async/await patterns
+- Request rate limiting
+- Response caching where appropriate
+- Efficient database queries
+
+## Security Guidelines
+- Input validation for all API parameters
+- CORS configuration
+- Helmet.js for HTTP headers security
+- Environment variable management (dotenv)
+- No sensitive information in logs or responses
+
+## Technical Stack
+- Node.js
+- TypeScript
+- Express.js
+- node-uci for Stockfish integration
+- Solana Web3.js (planned)
+
+## Improvement Prompt
+This cursor rule should be continuously updated as the backend evolves. When implementing new features, services, or patterns, please update this file with:
+
+1. Any new architectural decisions or patterns
+2. Updated folder structure guidelines
+3. New API endpoint formats and conventions
+4. Additional security considerations
+5. New dependencies or tools added to the stack
+6. Documentation for new backend features
+7. Implementation notes for Solana blockchain integration
+
+By keeping this guide updated, we ensure consistent development practices across the team and maintain high-quality code standards as the project grows. 
