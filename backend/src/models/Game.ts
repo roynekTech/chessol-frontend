@@ -1,5 +1,12 @@
 import mongoose, { Schema } from "mongoose";
-import { IGame, GameStatus, GameResult, GameTimeControl, IMove } from "./types";
+import {
+  IGame,
+  GameStatus,
+  GameResult,
+  GameTimeControl,
+  IMove,
+  GameType,
+} from "./types";
 import { GAME_CONSTANTS } from "../config/constants";
 
 // Define schema for moves
@@ -120,6 +127,23 @@ const GameSchema: Schema = new Schema(
       type: String,
       default: "",
     },
+    // Add new fields for AI vs AI games
+    gameType: {
+      type: String,
+      enum: Object.values(GameType),
+      required: true,
+      default: GameType.HUMAN_VS_HUMAN,
+    },
+    whiteAiDifficulty: {
+      type: Number,
+      min: 1,
+      max: 20,
+    },
+    blackAiDifficulty: {
+      type: Number,
+      min: 1,
+      max: 20,
+    },
   },
   {
     timestamps: true,
@@ -131,6 +155,7 @@ GameSchema.index({ whitePlayer: 1 });
 GameSchema.index({ blackPlayer: 1 });
 GameSchema.index({ status: 1 });
 GameSchema.index({ createdAt: -1 });
+GameSchema.index({ gameType: 1, status: 1 }); // For querying active AI games
 
 // Virtual field for game duration in seconds
 GameSchema.virtual("duration").get(function (this: IGame) {
@@ -142,7 +167,10 @@ GameSchema.virtual("duration").get(function (this: IGame) {
 
 // Virtual field to check if the game is against AI
 GameSchema.virtual("isAIGame").get(function (this: IGame) {
-  return this.whitePlayer === null || this.blackPlayer === null;
+  return (
+    this.gameType === GameType.AI_VS_AI ||
+    this.gameType === GameType.HUMAN_VS_AI
+  );
 });
 
 // Virtual field to get the winner (if any)

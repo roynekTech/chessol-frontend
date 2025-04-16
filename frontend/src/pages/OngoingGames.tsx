@@ -7,43 +7,84 @@ import {
   Plus,
   Eye,
   Clock,
-  Users,
+  Bot,
   Monitor,
   ChevronRight,
 } from "lucide-react";
 import { GameModeModal } from "@/components/GameModeModal";
+import { useGetData } from "../utils/use-query-hooks";
+import { formatDistanceToNow } from "date-fns";
 
-// Mock data for ongoing games - would be replaced with actual data from an API
-const mockOngoingGames = [
-  {
-    id: "game1",
-    mode: "human",
-    whitePlayer: "Player1",
-    blackPlayer: "Player2",
-    moves: 12,
-    startedAt: "2 min ago",
-  },
-  {
-    id: "game2",
-    mode: "computer",
-    whitePlayer: "Player3",
-    blackPlayer: "Computer (ELO ~2050)",
-    moves: 8,
-    startedAt: "5 min ago",
-  },
-  {
-    id: "game3",
-    mode: "human",
-    whitePlayer: "Player4",
-    blackPlayer: "Player5",
-    moves: 24,
-    startedAt: "12 min ago",
-  },
-];
+// Type definitions for the game data
+interface TimeControl {
+  type: string;
+  initial: number;
+  increment: number;
+}
+
+interface Move {
+  from: string;
+  to: string;
+  fen: string;
+  san: string;
+  timestamp: string;
+}
+
+interface Game {
+  _id: string;
+  timeControl: TimeControl;
+  whitePlayer: string | null;
+  blackPlayer: string | null;
+  currentTurn: string;
+  moves: Move[];
+  status: string;
+  result: string;
+  whiteTimeRemaining: number;
+  blackTimeRemaining: number;
+  currentPosition: string;
+  initialPosition: string;
+  isRated: boolean;
+  spectatorCount: number;
+  chatEnabled: boolean;
+  gameType: string;
+  whiteAiDifficulty?: number;
+  blackAiDifficulty?: number;
+  createdAt: string;
+  updatedAt: string;
+  lastMoveAt: string;
+}
 
 export function OngoingGames() {
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const {
+    data: gamesData,
+    isLoading,
+    error,
+  } = useGetData<Game[]>("/api/games/ai/active", ["ongoingGames"], {
+    refetchInterval: 5000, // Refetch every 5 seconds
+    retry: 3, // Retry failed requests 3 times
+    onError: (error: Error) => {
+      console.error("Failed to fetch games:", error);
+    },
+  });
+  const games = gamesData?.data || [];
+
+  const formatTimeControl = (timeControl: TimeControl) => {
+    const minutes = timeControl.initial / 60;
+    return `${minutes}+${timeControl.increment}`;
+  };
+
+  const getGameTitle = (game: Game) => {
+    if (game.gameType === "AI_VS_AI") {
+      return `AI (${game.whiteAiDifficulty}) vs AI (${game.blackAiDifficulty})`;
+    }
+    return "Human vs AI";
+  };
+
+  const getLastMoveTime = (lastMoveAt: string) => {
+    return formatDistanceToNow(new Date(lastMoveAt), { addSuffix: true });
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-950 to-black text-white p-6">
@@ -80,7 +121,30 @@ export function OngoingGames() {
 
       {/* Game List with enhanced cards */}
       <div className="max-w-6xl mx-auto">
-        {mockOngoingGames.length === 0 ? (
+        {isLoading ? (
+          <div className="text-center py-16">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500 mx-auto"></div>
+            <p className="mt-4 text-gray-400">Loading games...</p>
+          </div>
+        ) : error ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-center py-16 bg-black/20 backdrop-blur-sm rounded-xl border border-red-800"
+          >
+            <div className="p-8">
+              <p className="text-xl text-red-400 mb-6">
+                Failed to load games. Please try again later.
+              </p>
+              <Button
+                className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 rounded-full px-6 shadow-lg shadow-amber-900/20"
+                onClick={() => window.location.reload()}
+              >
+                <Plus className="mr-2 h-4 w-4" /> Retry
+              </Button>
+            </div>
+          </motion.div>
+        ) : games.length === 0 ? (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -88,7 +152,7 @@ export function OngoingGames() {
           >
             <div className="p-8">
               <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-gradient-to-br from-amber-500/20 to-orange-600/20 flex items-center justify-center">
-                <Users className="h-8 w-8 text-amber-400" />
+                <Bot className="h-8 w-8 text-amber-400" />
               </div>
               <p className="text-xl text-gray-400 mb-6">
                 No ongoing games available
@@ -103,9 +167,9 @@ export function OngoingGames() {
           </motion.div>
         ) : (
           <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-            {mockOngoingGames.map((game, index) => (
+            {games.map((game, index) => (
               <motion.div
-                key={game.id}
+                key={game._id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: index * 0.1 }}
@@ -114,57 +178,44 @@ export function OngoingGames() {
                 {/* Card header with game type badge */}
                 <div className="flex justify-between items-start p-4 border-b border-gray-800/50">
                   <div className="flex items-center">
-                    {game.mode === "human" ? (
-                      <Users className="h-4 w-4 text-purple-400 mr-2" />
-                    ) : (
-                      <Monitor className="h-4 w-4 text-blue-400 mr-2" />
-                    )}
+                    <Monitor className="h-4 w-4 text-blue-400 mr-2" />
                     <span className="px-2 py-1 bg-gray-800/80 rounded-full text-xs font-medium">
-                      {game.mode === "human"
-                        ? "Human vs Human"
-                        : "Human vs Computer"}
+                      {getGameTitle(game)}
                     </span>
                   </div>
                   <div className="flex items-center text-xs text-gray-400">
                     <Clock className="h-3 w-3 mr-1" />
-                    {game.startedAt}
+                    {getLastMoveTime(game.lastMoveAt)}
                   </div>
                 </div>
 
-                {/* Players section */}
+                {/* Game Info */}
                 <div className="p-4">
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <div className="w-4 h-4 bg-white rounded-full mr-2 ring-2 ring-white/30"></div>
-                        <span className="font-medium text-gray-200">
-                          {game.whitePlayer}
-                        </span>
-                      </div>
+                    <div className="text-sm text-gray-400">
+                      Time Control: {formatTimeControl(game.timeControl)}
                     </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <div className="w-4 h-4 bg-black border border-gray-600 rounded-full mr-2 ring-2 ring-black/30"></div>
-                        <span className="font-medium text-gray-200">
-                          {game.blackPlayer}
-                        </span>
-                      </div>
+                    <div className="text-sm text-gray-400">
+                      Moves: {game.moves.length}
+                    </div>
+                    <div className="text-sm text-gray-400">
+                      Spectators: {game.spectatorCount}
                     </div>
                   </div>
                 </div>
 
-                {/* Card footer with stats and action button */}
+                {/* Card footer with action button */}
                 <div className="bg-black/40 p-4 flex justify-between items-center">
                   <div className="flex items-center text-sm text-gray-400">
                     <span className="bg-gray-800/50 px-2 py-0.5 rounded-full text-xs">
-                      {game.moves} moves
+                      {game.status}
                     </span>
                   </div>
                   <Button
                     size="sm"
                     variant="outline"
                     className="text-amber-400 border-amber-700/30 bg-black/30 hover:bg-amber-900/30 hover:text-amber-300 hover:border-amber-600 transition-all duration-300 rounded-full"
-                    onClick={() => navigate(`/game?spectate=${game.id}`)}
+                    onClick={() => navigate(`/game/${game._id}`)}
                   >
                     <Eye className="mr-1 h-3 w-3" /> Watch
                     <ChevronRight className="ml-1 h-3 w-3" />
@@ -176,7 +227,7 @@ export function OngoingGames() {
         )}
       </div>
 
-      {/* Floating "Start Game" button for mobile - shows when scrolling */}
+      {/* Floating "Start Game" button for mobile */}
       <div className="md:hidden fixed bottom-6 right-6 z-10">
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}

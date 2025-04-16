@@ -8,6 +8,12 @@ import { ENV } from "./config/constants";
 import connectDB from "./config/database";
 import mongoose from "mongoose";
 
+// Import routes
+import gameRoutes from "./routes/gameRoutes";
+
+// Import AI Manager
+import AIManagerService from "./services/ai/AIManagerService";
+
 // Initialize Express app
 const app = express();
 const PORT = ENV.PORT;
@@ -19,6 +25,9 @@ connectDB();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// API endpoints
+app.use("/api/games", gameRoutes);
 
 // API endpoint to get best move from Stockfish
 app.post("/api/move", async (req, res) => {
@@ -54,7 +63,7 @@ app.post("/api/move", async (req, res) => {
     const engine = new Engine(stockfishPath);
 
     await engine.init();
-    await engine.setoption("Skill Level", skill);
+    await engine.setoption("Skill Level", skill.toString());
     await engine.position(fen);
 
     console.log("Engine initialized, calculating best move...");
@@ -92,11 +101,39 @@ app.get("/api/health", (req, res) => {
     environment: ENV.NODE_ENV,
     mongoConnection:
       mongoose.connection.readyState === 1 ? "connected" : "disconnected",
+    aiManagerRunning: AIManagerService.isRunning,
   });
 });
+
+// Start the AI Manager Service once the server is running
+const startAIManager = () => {
+  // Initialize and start the AI manager with default settings
+  AIManagerService.initialize({
+    targetGameCount: 5, // For testing, start with a smaller number
+    checkInterval: 20000, // 20 seconds
+    minAiLevel: 5,
+    maxAiLevel: 15,
+  });
+
+  AIManagerService.start();
+
+  // Clean shutdown of AIManager on exit
+  process.on("SIGTERM", () => {
+    console.log("SIGTERM received, shutting down AI Manager...");
+    AIManagerService.stop();
+  });
+
+  process.on("SIGINT", () => {
+    console.log("SIGINT received, shutting down AI Manager...");
+    AIManagerService.stop();
+  });
+};
 
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
   console.log(`Environment: ${ENV.NODE_ENV}`);
+
+  // Start the AI Manager after the server is running
+  startAIManager();
 });

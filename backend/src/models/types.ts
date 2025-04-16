@@ -41,6 +41,13 @@ export enum GameTimeControl {
   CLASSICAL = "classical", // 30+ minutes
 }
 
+// Game type enum
+export enum GameType {
+  AI_VS_AI = "AI_VS_AI",
+  HUMAN_VS_AI = "HUMAN_VS_AI",
+  HUMAN_VS_HUMAN = "HUMAN_VS_HUMAN",
+}
+
 export interface IMove {
   from: string;
   to: string;
@@ -75,6 +82,9 @@ export interface IGame extends Document {
   spectatorCount: number;
   chatEnabled: boolean;
   pgn: string;
+  gameType: GameType; // Type of game (AI vs AI, Human vs AI, etc.)
+  whiteAiDifficulty?: number; // AI difficulty for white player
+  blackAiDifficulty?: number; // AI difficulty for black player
 }
 
 // Rating change record
