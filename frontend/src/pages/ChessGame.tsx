@@ -18,6 +18,10 @@ export function ChessGame() {
   const initialMode = queryParams.get("mode") || "computer";
   const computerColor = queryParams.get("computerColor") || "b";
   const initialDifficulty = Number(queryParams.get("difficulty") || 10);
+  const spectateId = queryParams.get("spectate");
+
+  // Add spectate mode state
+  const [isSpectating, setIsSpectating] = useState(!!spectateId);
 
   const [gameMode, setGameMode] = useState(initialMode);
   const [game] = useState(new Chess());
@@ -52,6 +56,38 @@ export function ChessGame() {
   // Initialize Stockfish service
   const stockfish = useMemo(() => new StockfishService(), []);
 
+  // Function to adjust difficulty (not exposed in UI yet)
+  const adjustDifficulty = useCallback((newDifficulty: number) => {
+    // Clamp difficulty between 1-20
+    const clampedDifficulty = Math.min(20, Math.max(1, newDifficulty));
+    setDifficulty(clampedDifficulty);
+    console.log(
+      `Difficulty adjusted to: ${clampedDifficulty} (ELO ~${estimateElo(
+        clampedDifficulty
+      )})`
+    );
+  }, []);
+
+  // Add keyboard shortcuts for debugging and power users
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Only in development or for power users
+      if (event.ctrlKey && event.shiftKey) {
+        // Ctrl+Shift+ArrowUp/ArrowDown to adjust difficulty
+        if (event.key === "ArrowUp") {
+          adjustDifficulty(difficulty + 1);
+        } else if (event.key === "ArrowDown") {
+          adjustDifficulty(difficulty - 1);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [adjustDifficulty, difficulty]);
+
   // Check if Stockfish API is available
   useEffect(() => {
     const checkStockfish = async () => {
@@ -71,6 +107,18 @@ export function ChessGame() {
 
     checkStockfish();
   }, [stockfish, gameMode]);
+
+  // Fetch game data if spectating
+  useEffect(() => {
+    if (spectateId) {
+      // In a real app, this would fetch the game data from an API
+      console.log(`Spectating game with ID: ${spectateId}`);
+      setIsSpectating(true);
+
+      // Mock implementation - in reality you would fetch actual game data
+      // and set up a websocket or polling to get move updates
+    }
+  }, [spectateId]);
 
   // Format time from seconds to MM:SS
   const formatTime = (seconds: number) => {
@@ -247,12 +295,13 @@ export function ChessGame() {
     updateGameStatus();
   }, [updateGameStatus]);
 
-  // Handle square click
+  // Modify handleSquareClick to prevent moves when spectating
   const handleSquareClick = (square: string) => {
     try {
-      // Return early if game is over or if it's the computer's turn
+      // Return early if game is over, if we're spectating, or if it's the computer's turn
       if (
         game.isGameOver() ||
+        isSpectating ||
         (gameMode === "computer" && game.turn() === computerColor)
       )
         return;
@@ -536,7 +585,7 @@ export function ChessGame() {
       <div className="w-full max-w-6xl mx-auto mb-4 flex flex-col sm:flex-row justify-between items-center">
         <Button
           variant="ghost"
-          onClick={() => navigate("/")}
+          onClick={() => navigate(isSpectating ? "/games" : "/")}
           className="text-gray-300 hover:text-black mb-4 sm:mb-0"
         >
           <ArrowLeft className="mr-2 h-4 w-4" /> Back
@@ -544,6 +593,11 @@ export function ChessGame() {
 
         <div className="bg-black/50 p-3 rounded-lg shadow-lg mb-4 sm:mb-0">
           <div className="grid grid-cols-1 gap-2">
+            {isSpectating && (
+              <div className="text-sm bg-purple-900/50 px-3 py-1 rounded-full text-center">
+                <span className="font-semibold">Spectator Mode</span>
+              </div>
+            )}
             <div className="text-sm">
               <span className="text-gray-400">Mode:</span>{" "}
               <span className="font-semibold">

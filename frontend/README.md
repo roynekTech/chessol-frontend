@@ -1,54 +1,90 @@
-# React + TypeScript + Vite
+# Chessol - Chess Application with Solana Integration
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## Project Overview
 
-Currently, two official plugins are available:
+Chessol is a modern web application that allows users to play chess games, spectate ongoing matches, and integrates with the Solana blockchain for future functionalities.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Recent UI Enhancements
 
-## Expanding the ESLint configuration
+### Redesigned Flow
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+The application now follows a more intuitive flow:
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+1. Landing Page with "Get Started" button
+2. Ongoing Games page showing current games with options to:
+   - Watch ongoing games (spectator mode)
+   - Start a new game
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Visual Improvements
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+- Modern, polished UI with gradients, shadows, and animations
+- Responsive design for mobile and desktop
+- Visual hierarchy improvements for better readability
+- Enhanced game cards with improved layout and visual cues
+- Redesigned modals for game mode selection
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
-```
+## Customization Notes
+
+### Required Images
+
+For the best visual experience, add the following images to the `frontend/public` directory:
+
+- `chess-background.jpg` - A high-quality chess-themed background image
+- `chess-pieces-silhouette.png` - A silhouette of chess pieces for decorative purposes
+
+After adding these images:
+
+1. In `LandingPage.tsx`, change `hasSilhouette` from `false` to `true` to enable the decorative chess piece silhouettes.
+
+### Theme Colors
+
+The application uses a consistent color palette:
+
+- Primary gradients: amber-500 to orange-600
+- Secondary accents: purple tones
+- Background: Dark gradients with subtle glow effects
+
+To adjust the theme colors, search for gradient classes in the components and modify them as needed.
+
+## Available Scripts
+
+In the project directory, you can run:
+
+### `npm run dev`
+
+Runs the app in development mode.
+
+### `npm run build`
+
+Builds the app for production to the `dist` folder.
+
+### `npm run preview`
+
+Locally preview the production build.
+
+## Design Decisions
+
+### Spectator Mode
+
+Spectator mode allows users to view ongoing games without interfering. The implementation includes:
+
+- Visual indicator showing the user is in spectator mode
+- Disabled interaction with the game board
+- "Back" button that returns to the ongoing games list
+
+### Difficulty Adjustment
+
+Currently, the difficulty level can only be set before starting a game. For power users, we've added hidden keyboard shortcuts:
+
+- Ctrl+Shift+ArrowUp: Increase difficulty
+- Ctrl+Shift+ArrowDown: Decrease difficulty
+
+A future enhancement could include a visible UI for adjusting difficulty during gameplay.
+
+## Future Enhancements
+
+1. Live updates for spectator mode using WebSockets
+2. User profiles and statistics
+3. Tournament functionality
+4. Complete Solana wallet integration
+5. NFT rewards for tournament winners

@@ -1,0 +1,199 @@
+import { useState } from "react";
+import { motion } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
+import {
+  ArrowLeft,
+  Plus,
+  Eye,
+  Clock,
+  Users,
+  Monitor,
+  ChevronRight,
+} from "lucide-react";
+import { GameModeModal } from "@/components/GameModeModal";
+
+// Mock data for ongoing games - would be replaced with actual data from an API
+const mockOngoingGames = [
+  {
+    id: "game1",
+    mode: "human",
+    whitePlayer: "Player1",
+    blackPlayer: "Player2",
+    moves: 12,
+    startedAt: "2 min ago",
+  },
+  {
+    id: "game2",
+    mode: "computer",
+    whitePlayer: "Player3",
+    blackPlayer: "Computer (ELO ~2050)",
+    moves: 8,
+    startedAt: "5 min ago",
+  },
+  {
+    id: "game3",
+    mode: "human",
+    whitePlayer: "Player4",
+    blackPlayer: "Player5",
+    moves: 24,
+    startedAt: "12 min ago",
+  },
+];
+
+export function OngoingGames() {
+  const navigate = useNavigate();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-950 to-black text-white p-6">
+      {/* Background glow effects */}
+      <div className="fixed top-0 right-0 w-96 h-96 bg-amber-500/10 rounded-full filter blur-3xl pointer-events-none"></div>
+      <div className="fixed bottom-0 left-0 w-96 h-96 bg-purple-700/10 rounded-full filter blur-3xl pointer-events-none"></div>
+
+      {/* Header with animated underline */}
+      <div className="max-w-6xl mx-auto mb-12">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+          <Button
+            variant="ghost"
+            onClick={() => navigate("/")}
+            className="text-gray-300 hover:text-black rounded-full"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Home
+          </Button>
+
+          <h1 className="text-3xl md:text-4xl font-bold text-center relative group">
+            <span className="bg-gradient-to-r from-amber-400 via-orange-500 to-yellow-500 text-transparent bg-clip-text">
+              Ongoing Games
+            </span>
+            <span className="block h-1 max-w-0 group-hover:max-w-full transition-all duration-500 bg-gradient-to-r from-amber-400 via-orange-500 to-yellow-500"></span>
+          </h1>
+
+          <Button
+            className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 rounded-full shadow-lg shadow-amber-900/20 font-medium transition-all duration-300 transform hover:scale-105"
+            onClick={() => setIsModalOpen(true)}
+          >
+            <Plus className="mr-2 h-4 w-4" /> Start Game
+          </Button>
+        </div>
+      </div>
+
+      {/* Game List with enhanced cards */}
+      <div className="max-w-6xl mx-auto">
+        {mockOngoingGames.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-center py-16 bg-black/20 backdrop-blur-sm rounded-xl border border-gray-800"
+          >
+            <div className="p-8">
+              <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-gradient-to-br from-amber-500/20 to-orange-600/20 flex items-center justify-center">
+                <Users className="h-8 w-8 text-amber-400" />
+              </div>
+              <p className="text-xl text-gray-400 mb-6">
+                No ongoing games available
+              </p>
+              <Button
+                className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 rounded-full px-6 shadow-lg shadow-amber-900/20"
+                onClick={() => setIsModalOpen(true)}
+              >
+                <Plus className="mr-2 h-4 w-4" /> Start a Game
+              </Button>
+            </div>
+          </motion.div>
+        ) : (
+          <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+            {mockOngoingGames.map((game, index) => (
+              <motion.div
+                key={game.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.1 }}
+                className="bg-gradient-to-b from-black/60 to-black/40 backdrop-blur-sm border border-gray-800 rounded-xl overflow-hidden hover:border-amber-600/40 hover:shadow-lg hover:shadow-amber-900/10 transition-all duration-300"
+              >
+                {/* Card header with game type badge */}
+                <div className="flex justify-between items-start p-4 border-b border-gray-800/50">
+                  <div className="flex items-center">
+                    {game.mode === "human" ? (
+                      <Users className="h-4 w-4 text-purple-400 mr-2" />
+                    ) : (
+                      <Monitor className="h-4 w-4 text-blue-400 mr-2" />
+                    )}
+                    <span className="px-2 py-1 bg-gray-800/80 rounded-full text-xs font-medium">
+                      {game.mode === "human"
+                        ? "Human vs Human"
+                        : "Human vs Computer"}
+                    </span>
+                  </div>
+                  <div className="flex items-center text-xs text-gray-400">
+                    <Clock className="h-3 w-3 mr-1" />
+                    {game.startedAt}
+                  </div>
+                </div>
+
+                {/* Players section */}
+                <div className="p-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <div className="w-4 h-4 bg-white rounded-full mr-2 ring-2 ring-white/30"></div>
+                        <span className="font-medium text-gray-200">
+                          {game.whitePlayer}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <div className="w-4 h-4 bg-black border border-gray-600 rounded-full mr-2 ring-2 ring-black/30"></div>
+                        <span className="font-medium text-gray-200">
+                          {game.blackPlayer}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Card footer with stats and action button */}
+                <div className="bg-black/40 p-4 flex justify-between items-center">
+                  <div className="flex items-center text-sm text-gray-400">
+                    <span className="bg-gray-800/50 px-2 py-0.5 rounded-full text-xs">
+                      {game.moves} moves
+                    </span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-amber-400 border-amber-700/30 bg-black/30 hover:bg-amber-900/30 hover:text-amber-300 hover:border-amber-600 transition-all duration-300 rounded-full"
+                    onClick={() => navigate(`/game?spectate=${game.id}`)}
+                  >
+                    <Eye className="mr-1 h-3 w-3" /> Watch
+                    <ChevronRight className="ml-1 h-3 w-3" />
+                  </Button>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Floating "Start Game" button for mobile - shows when scrolling */}
+      <div className="md:hidden fixed bottom-6 right-6 z-10">
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.5 }}
+        >
+          <Button
+            className="h-14 w-14 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 shadow-lg shadow-amber-900/20"
+            onClick={() => setIsModalOpen(true)}
+          >
+            <Plus className="h-6 w-6" />
+          </Button>
+        </motion.div>
+      </div>
+
+      {/* Game Mode Modal */}
+      <GameModeModal open={isModalOpen} onOpenChange={setIsModalOpen} />
+    </div>
+  );
+}
