@@ -18,87 +18,113 @@ Chessol's backend provides a REST API for chess game functionalities, including 
 
 ### Code Organization
 - `/src`: Main source directory
-  - `/controllers`: Request handlers
-  - `/services`: Business logic
-  - `/models`: Data models and types
-  - `/routes`: API route definitions
-  - `/middleware`: Express middleware
-  - `/utils`: Utility functions
-  - `/config`: Configuration files
+  - `/controllers`: Request handlers (thin, delegate logic to services)
+  - `/services`: Business logic (modular, focused, testable)
+  - `/models`: Data models and types (Mongoose schemas/interfaces)
+  - `/routes`: API route definitions (group related routes)
+  - `/middleware`: Express middleware (authentication, validation, error handling)
+  - `/utils`: Utility functions (pure, reusable helpers)
+  - `/config`: Configuration files (database, constants, environment)
+  - `/validation`: Joi validation schemas
+- **Scalability**: Design services and components to handle increased load. Consider asynchronous operations and stateless services where possible.
+- **Maintainability**: Favor clear, modular design over complex, monolithic structures. Ensure components have single responsibilities.
 
 ## Coding Standards
 
+### General Principles
+- **Readability**: Write code that is easy for other developers to understand. Use clear variable/function names, consistent formatting (enforced by Prettier/ESLint), and avoid overly complex logic in single functions.
+- **Modularity**: Break down complex tasks into smaller, reusable functions or classes with well-defined inputs and outputs.
+- **Testability**: Write code with testing in mind. Services should be easily mockable, and functions should be as pure as possible.
+- **Maintainability**: Prioritize code that is easy to modify and debug. Avoid tight coupling between components.
+- **DRY (Don't Repeat Yourself)**: Abstract common logic into reusable functions or services.
+- **KISS (Keep It Simple, Stupid)**: Avoid unnecessary complexity.
+
+### TypeScript Usage
+- Utilize TypeScript features effectively: interfaces, enums, generics, utility types.
+- Define clear types for function parameters and return values.
+- Use `async/await` for asynchronous operations consistently.
+- Avoid using `any` type whenever possible. Prefer specific types or `unknown`.
+
 ### API Response Format
-- Consistent JSON response format:
+- Consistent JSON response format (as defined in `src/utils/apiResponse.ts`):
   ```typescript
   {
     status: 'success' | 'error',
     data?: any,
-    error?: { message: string, code: string }
+    error?: { message: string, code: string, details?: any }
   }
   ```
-- Appropriate HTTP status codes (200, 201, 400, 401, 404, 500)
-- Comprehensive error handling with descriptive messages
+- Use appropriate HTTP status codes (200, 201, 400, 401, 403, 404, 500).
+- Provide meaningful and consistent error messages, using codes from `constants.ts`.
 
 ### Error Handling
-- Centralized error handling middleware
-- Custom error classes for different error types
-- Structured logging for debugging
+- Implement centralized error handling middleware.
+- Use custom error classes for specific application errors (e.g., `ValidationError`, `AuthenticationError`, `NotFoundError`).
+- Log errors effectively using a structured logging approach (consider adding a logger like Winston or Pino later).
+- Never expose sensitive stack traces or internal error details in production responses.
 
 ### Authentication & Authorization
-- JWT-based authentication
-- Role-based access control for protected endpoints
-- Secure token management
+- Secure JWT-based authentication.
+- Implement role-based access control (RBAC) or permission-based access for protected endpoints as needed.
+- Store JWT secrets securely using environment variables.
+- Implement secure token refresh mechanisms if long-lived sessions are required.
 
 ## Chess Engine Integration
 
 ### Stockfish Engine
-- Node-UCI for Stockfish communication
-- Configurable depth and skill level parameters
-- Proper engine resource management (initialization and termination)
-- Error handling for engine failures
+- Isolate Stockfish interaction logic within a dedicated service (`StockfishService`).
+- Handle engine initialization, communication (via `node-uci`), and termination properly.
+- Implement robust error handling for engine process failures or unexpected output.
+- Configure depth and skill level parameters via environment variables (`constants.ts`).
 
 ## Planned Solana Integration
 
 ### Wallet Integration
-- Solana Web3.js for blockchain interactions
-- Secure key management
-- Transaction signing and verification
+- Use `@solana/web3.js` and signature verification libraries (`tweetnacl`) correctly.
+- Implement secure signature verification logic for wallet-based login.
+- Store wallet addresses appropriately in the User model.
 
 ### Smart Contract Interactions
-- NFT minting for chess pieces and boards
-- Tournament contract integration
-- Staking functionalities for competitive play
+- Abstract interactions with Solana programs (smart contracts) into dedicated services.
+- Manage connection state to the Solana cluster.
+- Handle transaction signing, sending, and confirmation gracefully, accounting for network latency and potential failures.
 
 ## Performance Considerations
-- Proper async/await patterns
-- Request rate limiting
-- Response caching where appropriate
-- Efficient database queries
+- Use `async/await` correctly to avoid blocking the event loop.
+- Optimize database queries: use appropriate indexing (defined in schemas), select only necessary fields, and consider pagination for large datasets.
+- Implement caching strategies (e.g., Redis) for frequently accessed, non-volatile data where appropriate.
+- Implement request rate limiting to prevent abuse.
 
 ## Security Guidelines
-- Input validation for all API parameters
-- CORS configuration
-- Helmet.js for HTTP headers security
-- Environment variable management (dotenv)
-- No sensitive information in logs or responses
+- Validate and sanitize all user input (using Joi validation middleware).
+- Use Helmet.js middleware for common security headers.
+- Configure CORS appropriately to restrict origins.
+- Protect against common vulnerabilities (XSS, CSRF, Injection attacks).
+- Store sensitive configuration (API keys, JWT secrets) in environment variables, not in code.
+- Regularly update dependencies to patch security vulnerabilities (`npm audit`).
 
 ## Technical Stack
 - Node.js
 - TypeScript
 - Express.js
-- node-uci for Stockfish integration
-- Solana Web3.js (planned)
+- Mongoose (MongoDB ODM)
+- Joi (Validation)
+- bcryptjs (Password Hashing)
+- jsonwebtoken (JWT Handling)
+- node-uci (Stockfish Integration)
+- socket.io (WebSocket Communication - planned)
+- @solana/web3.js, tweetnacl (Solana Integration - planned)
 
 ## Improvement Prompt
 This cursor rule should be continuously updated as the backend evolves. When implementing new features, services, or patterns, please update this file with:
 
-1. Any new architectural decisions or patterns
-2. Updated folder structure guidelines
-3. New API endpoint formats and conventions
-4. Additional security considerations
-5. New dependencies or tools added to the stack
-6. Documentation for new backend features
-7. Implementation notes for Solana blockchain integration
+1. Any new architectural decisions or patterns (e.g., CQRS, event sourcing if adopted).
+2. Updated folder structure guidelines or new standard directories.
+3. New API endpoint formats and conventions.
+4. Additional security considerations or implemented security measures.
+5. New dependencies or tools added to the stack and their usage guidelines.
+6. Documentation for new backend features or cross-cutting concerns.
+7. Implementation notes for Solana blockchain integration details.
+8. Refined coding standards or best practices identified during development.
 
-By keeping this guide updated, we ensure consistent development practices across the team and maintain high-quality code standards as the project grows. 
+By keeping this guide updated, we ensure consistent development practices across the team and maintain high-quality, scalable, and maintainable code standards as the project grows. 

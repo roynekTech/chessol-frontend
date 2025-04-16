@@ -4,19 +4,30 @@ import { Engine } from "node-uci";
 import path from "path";
 import os from "os";
 import fs from "fs";
+import { ENV } from "./config/constants";
+import connectDB from "./config/database";
+import mongoose from "mongoose";
 
 // Initialize Express app
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = ENV.PORT;
+
+// Connect to MongoDB
+connectDB();
 
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // API endpoint to get best move from Stockfish
 app.post("/api/move", async (req, res) => {
   try {
-    const { fen, depth = 15, skill = 10 } = req.body;
+    const {
+      fen,
+      depth = ENV.DEFAULT_DEPTH,
+      skill = ENV.DEFAULT_SKILL_LEVEL,
+    } = req.body;
 
     if (!fen) {
       return res.status(400).json({ error: "FEN position is required" });
@@ -25,11 +36,11 @@ app.post("/api/move", async (req, res) => {
     console.log(`Processing position: ${fen}`);
     console.log(`Depth: ${depth}, Skill: ${skill}`);
 
-    // Use absolute path to the user's home directory
-    const homeDir = os.homedir();
+    // Use environment variable if available, otherwise fall back to hardcoded path
     const stockfishPath = path.join(
-      homeDir,
-      "Downloads/stockfish/stockfish-macos-m1-apple-silicon"
+      os.homedir(),
+      ENV.STOCKFISH_PATH ||
+        "Downloads/stockfish/stockfish-macos-m1-apple-silicon"
     );
 
     // Check if the file exists
@@ -75,10 +86,17 @@ app.post("/api/move", async (req, res) => {
 
 // Health check endpoint
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", message: "Chess API is running" });
+  res.json({
+    status: "ok",
+    message: "Chess API is running",
+    environment: ENV.NODE_ENV,
+    mongoConnection:
+      mongoose.connection.readyState === 1 ? "connected" : "disconnected",
+  });
 });
 
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Environment: ${ENV.NODE_ENV}`);
 });
