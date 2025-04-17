@@ -1,46 +1,14 @@
 import mongoose, { Schema } from "mongoose";
 import {
   IGame,
-  GameStatus,
-  GameResult,
+  GameStatusEnum,
+  GameResultEnum,
   GameTimeControl,
   IMove,
-  GameType,
+  GameTypeEnum,
 } from "./types";
 import { GAME_CONSTANTS } from "../config/constants";
 
-// Define schema for moves
-const MoveSchema: Schema = new Schema<IMove>(
-  {
-    from: {
-      type: String,
-      required: true,
-    },
-    to: {
-      type: String,
-      required: true,
-    },
-    promotion: {
-      type: String,
-      required: false,
-    },
-    fen: {
-      type: String,
-      required: true,
-    },
-    san: {
-      type: String,
-      required: true,
-    },
-    timestamp: {
-      type: Date,
-      default: Date.now,
-    },
-  },
-  { _id: false }
-);
-
-// Define the Game schema
 const GameSchema: Schema = new Schema(
   {
     whitePlayer: {
@@ -58,39 +26,25 @@ const GameSchema: Schema = new Schema(
       enum: ["w", "b"],
       default: "w",
     },
-    moves: [MoveSchema],
+    moves: {
+      type: [
+        {
+          from: String,
+          to: String,
+          fen: String,
+        },
+      ],
+      default: [],
+    },
     status: {
       type: String,
-      enum: Object.values(GameStatus),
-      default: GameStatus.WAITING,
+      enum: Object.values(GameStatusEnum),
+      default: GameStatusEnum.WAITING,
     },
     result: {
       type: String,
-      enum: Object.values(GameResult),
-      default: GameResult.ONGOING,
-    },
-    timeControl: {
-      type: {
-        type: String,
-        enum: Object.values(GameTimeControl),
-        default: GameTimeControl.RAPID,
-      },
-      initial: {
-        type: Number,
-        default: GAME_CONSTANTS.DEFAULT_TIME_CONTROL,
-      },
-      increment: {
-        type: Number,
-        default: GAME_CONSTANTS.DEFAULT_INCREMENT,
-      },
-    },
-    whiteTimeRemaining: {
-      type: Number,
-      default: GAME_CONSTANTS.DEFAULT_TIME_CONTROL,
-    },
-    blackTimeRemaining: {
-      type: Number,
-      default: GAME_CONSTANTS.DEFAULT_TIME_CONTROL,
+      enum: Object.values(GameResultEnum),
+      default: GameResultEnum.ONGOING,
     },
     currentPosition: {
       type: String,
@@ -100,49 +54,19 @@ const GameSchema: Schema = new Schema(
       type: String,
       default: GAME_CONSTANTS.DEFAULT_INITIAL_POSITION,
     },
-    aiDifficulty: {
-      type: Number,
-      min: 1,
-      max: 20,
-    },
-    lastMoveAt: {
-      type: Date,
-    },
+    difficulty: String,
     completedAt: {
       type: Date,
-    },
-    isRated: {
-      type: Boolean,
-      default: true,
     },
     spectatorCount: {
       type: Number,
       default: 0,
     },
-    chatEnabled: {
-      type: Boolean,
-      default: true,
-    },
-    pgn: {
-      type: String,
-      default: "",
-    },
-    // Add new fields for AI vs AI games
     gameType: {
       type: String,
-      enum: Object.values(GameType),
+      enum: Object.values(GameTypeEnum),
       required: true,
-      default: GameType.HUMAN_VS_HUMAN,
-    },
-    whiteAiDifficulty: {
-      type: Number,
-      min: 1,
-      max: 20,
-    },
-    blackAiDifficulty: {
-      type: Number,
-      min: 1,
-      max: 20,
+      default: GameTypeEnum.HUMAN_VS_HUMAN,
     },
   },
   {
@@ -168,15 +92,15 @@ GameSchema.virtual("duration").get(function (this: IGame) {
 // Virtual field to check if the game is against AI
 GameSchema.virtual("isAIGame").get(function (this: IGame) {
   return (
-    this.gameType === GameType.AI_VS_AI ||
-    this.gameType === GameType.HUMAN_VS_AI
+    this.gameType === GameTypeEnum.AI_VS_AI ||
+    this.gameType === GameTypeEnum.HUMAN_VS_AI
   );
 });
 
 // Virtual field to get the winner (if any)
 GameSchema.virtual("winner").get(function (this: IGame) {
-  if (this.result === GameResult.WHITE_WIN) return this.whitePlayer;
-  if (this.result === GameResult.BLACK_WIN) return this.blackPlayer;
+  if (this.result === GameResultEnum.WHITE_WIN) return this.whitePlayer;
+  if (this.result === GameResultEnum.BLACK_WIN) return this.blackPlayer;
   return null;
 });
 

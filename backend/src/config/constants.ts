@@ -27,27 +27,10 @@ export const ENV = {
   SOLANA_RPC_URL: process.env.SOLANA_RPC_URL || "https://api.devnet.solana.com",
 };
 
-// API response codes
-export const RESPONSE_CODES = {
-  SUCCESS: "SUCCESS",
-  ERROR: "ERROR",
-  UNAUTHORIZED: "UNAUTHORIZED",
-  NOT_FOUND: "NOT_FOUND",
-  VALIDATION_ERROR: "VALIDATION_ERROR",
-  SERVER_ERROR: "SERVER_ERROR",
-};
-
 // Game constants
 export const GAME_CONSTANTS = {
   DEFAULT_TIME_CONTROL: 600, // 10 minutes in seconds
   DEFAULT_INCREMENT: 5, // 5 seconds
   DEFAULT_INITIAL_POSITION:
     "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", // Standard chess position
-};
-
-// User constants
-export const USER_CONSTANTS = {
-  DEFAULT_RATING: 1200,
-  MIN_PASSWORD_LENGTH: 8,
-  MAX_USERNAME_LENGTH: 20,
 };

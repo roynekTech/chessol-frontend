@@ -1,6 +1,5 @@
 import mongoose, { Schema } from "mongoose";
 import { IUser } from "./types";
-import { USER_CONSTANTS } from "../config/constants";
 import bcrypt from "bcryptjs";
 
 // Install bcryptjs: npm install bcryptjs @types/bcryptjs
@@ -12,11 +11,6 @@ const UserSchema: Schema = new Schema(
       required: [true, "Username is required"],
       unique: true,
       trim: true,
-      minlength: [3, "Username must be at least 3 characters"],
-      maxlength: [
-        USER_CONSTANTS.MAX_USERNAME_LENGTH,
-        `Username cannot exceed ${USER_CONSTANTS.MAX_USERNAME_LENGTH} characters`,
-      ],
     },
     email: {
       type: String,
@@ -31,25 +25,11 @@ const UserSchema: Schema = new Schema(
     },
     password: {
       type: String,
-      required: [true, "Password is required"],
-      minlength: [
-        USER_CONSTANTS.MIN_PASSWORD_LENGTH,
-        `Password must be at least ${USER_CONSTANTS.MIN_PASSWORD_LENGTH} characters`,
-      ],
       select: false, // Don't return password by default
     },
     profilePicture: {
       type: String,
       default: "", // Default profile picture URL
-    },
-    bio: {
-      type: String,
-      maxlength: [200, "Bio cannot exceed 200 characters"],
-      default: "",
-    },
-    rating: {
-      type: Number,
-      default: USER_CONSTANTS.DEFAULT_RATING,
     },
     gamesPlayed: {
       type: Number,
@@ -105,6 +85,4 @@ UserSchema.virtual("winPercentage").get(function (this: IUser) {
   return Math.round((this.wins / this.gamesPlayed) * 100);
 });
 
-const User = mongoose.model<IUser>("User", UserSchema);
-
-export default User;
+export const User = mongoose.model<IUser>("User", UserSchema);

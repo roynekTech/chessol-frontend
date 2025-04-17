@@ -1,18 +1,25 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Chess, Square } from "chess.js";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Crown, Clock, RotateCw, Trophy, ArrowLeft } from "lucide-react";
 import * as React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { StockfishService } from "../services/stockfishService";
 import { estimateElo } from "../utils/chessUtils";
+import { useGetData } from "../utils/use-query-hooks";
+
+interface MoveResponse {
+  bestMove: string;
+  from: string;
+  to: string;
+  promotion?: string;
+}
 
 // Simplified chess board component to avoid TypeScript issues with chess.js
 export function ChessGame() {
   const navigate = useNavigate();
   const location = useLocation();
-  const queryParams = new URLSearchParams(location.search);
+  const queryParams = React.useMemo(() => new URLSearchParams(location.search), [location.search]);
 
   // Get game settings from URL parameters
   const initialMode = queryParams.get("mode") || "computer";
@@ -35,6 +42,14 @@ export function ChessGame() {
     b: [] as { type: string; color: string }[],
   });
 
+  // extract the game mode from the url
+  useEffect(() => {
+    const mode = queryParams.get("mode");
+    if (mode) {
+      setGameMode(mode);
+    }
+  }, [queryParams]);
+
   // Game timer
   const [timers, setTimers] = useState({
     w: 600, // 10 minutes in seconds
@@ -53,8 +68,17 @@ export function ChessGame() {
     to: string;
   } | null>(null);
 
-  // Initialize Stockfish service
-  const stockfish = useMemo(() => new StockfishService(), []);
+  // Move the hook call after all required variables are declared
+  const { data: moveResponse } = useGetData<MoveResponse>(
+    `api/games/get-move?fen=${fen}&depth=${difficulty}&skill=${difficulty}`,
+    ["chess", "move", fen, difficulty.toString()],
+    {
+      enabled: gameMode === "computer" && currentPlayer === computerColor,
+    }
+  );
+  const moveData = moveResponse?.data;
+
+  console.log("moveData", moveData);
 
   // Function to adjust difficulty (not exposed in UI yet)
   const adjustDifficulty = useCallback((newDifficulty: number) => {
@@ -87,26 +111,6 @@ export function ChessGame() {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [adjustDifficulty, difficulty]);
-
-  // Check if Stockfish API is available
-  useEffect(() => {
-    const checkStockfish = async () => {
-      try {
-        const available = await stockfish.isAvailable();
-        if (!available && gameMode === "computer") {
-          console.warn(
-            "Stockfish API is not available, falling back to human mode"
-          );
-          setGameMode("human");
-        }
-      } catch (error) {
-        console.error("Error checking Stockfish availability:", error);
-        setGameMode("human");
-      }
-    };
-
-    checkStockfish();
-  }, [stockfish, gameMode]);
 
   // Fetch game data if spectating
   useEffect(() => {
@@ -199,14 +203,11 @@ export function ChessGame() {
 
   // Computer move function
   const getComputerMove = useCallback(async () => {
-    console.log(
-      "getComputerMove called, gameMode:",
+    console.log("getComputerMove called ", {
       gameMode,
-      "computerColor:",
+      currentPlayer,
       computerColor,
-      "currentPlayer:",
-      currentPlayer
-    );
+    });
 
     // Corrected logic: Computer should play when it's the computer's color's turn
     if (gameMode !== "computer" || currentPlayer !== computerColor) {
@@ -220,13 +221,11 @@ export function ChessGame() {
       // Add a small delay to simulate "thinking"
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // Get move from Stockfish
-      console.log("Requesting computer move for game:", game.fen());
-      const move = await stockfish.makeMove(game, {
-        depth: difficulty,
-        skill: difficulty,
+      const move = game.move({
+        from: moveData?.from || "",
+        to: moveData?.to || "",
+        promotion: moveData?.promotion || undefined,
       });
-      console.log("Computer move result:", move);
 
       if (move) {
         // Show move trail animation
@@ -248,15 +247,15 @@ export function ChessGame() {
               capturedPiece,
             ],
           }));
+
+          // Switch active timer
+          setActiveTimer(game.turn() as string);
+
+          // Update game status
+          updateGameStatus();
+        } else {
+          console.error("Computer did not return a valid move");
         }
-
-        // Switch active timer
-        setActiveTimer(game.turn() as string);
-
-        // Update game status
-        updateGameStatus();
-      } else {
-        console.error("Computer did not return a valid move");
       }
     } catch (error) {
       console.error("Error getting computer move:", error);
@@ -264,25 +263,21 @@ export function ChessGame() {
       setIsThinking(false);
     }
   }, [
+    moveData,
     game,
     gameMode,
-    computerColor,
     currentPlayer,
-    difficulty,
-    stockfish,
+    computerColor,
     updateGameStatus,
   ]);
 
   // Trigger computer move when it's the computer's turn
   useEffect(() => {
-    console.log(
-      "Move trigger effect - gameMode:",
+    console.log("Move trigger effect - gameMode:", {
       gameMode,
-      "computerColor:",
       computerColor,
-      "currentPlayer:",
-      currentPlayer
-    );
+      currentPlayer,
+    });
 
     if (gameMode === "computer" && computerColor === currentPlayer) {
       console.log("Computer's turn, triggering move...");

@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from "express";
 import Joi from "joi";
-import { RESPONSE_CODES } from "../config/constants";
 
 type ValidationSource = "body" | "query" | "params";
 
@@ -26,7 +25,6 @@ export const validate = (
 
       return res.status(400).json({
         status: "error",
-        code: RESPONSE_CODES.VALIDATION_ERROR,
         error: {
           message: "Validation error",
           details: errorMessages,

@@ -18,7 +18,7 @@ export interface IUser extends Document {
 }
 
 // Game-related types
-export enum GameStatus {
+export enum GameStatusEnum {
   WAITING = "waiting",
   ACTIVE = "active",
   COMPLETED = "completed",
@@ -26,7 +26,7 @@ export enum GameStatus {
   DRAW = "draw",
 }
 
-export enum GameResult {
+export enum GameResultEnum {
   WHITE_WIN = "white_win",
   BLACK_WIN = "black_win",
   DRAW = "draw",
@@ -42,7 +42,7 @@ export enum GameTimeControl {
 }
 
 // Game type enum
-export enum GameType {
+export enum GameTypeEnum {
   AI_VS_AI = "AI_VS_AI",
   HUMAN_VS_AI = "HUMAN_VS_AI",
   HUMAN_VS_HUMAN = "HUMAN_VS_HUMAN",
@@ -62,8 +62,8 @@ export interface IGame extends Document {
   blackPlayer: string | null; // User ID or null for AI
   currentTurn: "w" | "b";
   moves: IMove[];
-  status: GameStatus;
-  result: GameResult;
+  status: GameStatusEnum;
+  result: GameResultEnum;
   timeControl: {
     type: GameTimeControl;
     initial: number; // Time in seconds
@@ -82,7 +82,7 @@ export interface IGame extends Document {
   spectatorCount: number;
   chatEnabled: boolean;
   pgn: string;
-  gameType: GameType; // Type of game (AI vs AI, Human vs AI, etc.)
+  gameType: GameTypeEnum; // Type of game (AI vs AI, Human vs AI, etc.)
   whiteAiDifficulty?: number; // AI difficulty for white player
   blackAiDifficulty?: number; // AI difficulty for black player
 }
