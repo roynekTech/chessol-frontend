@@ -14,7 +14,7 @@ function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/games" element={<OngoingGames />} />
-          <Route path="/game" element={<ChessGame />} />
+          <Route path="/game/:id" element={<ChessGame />} />
         </Routes>
       </Router>
     </QueryClientProvider>

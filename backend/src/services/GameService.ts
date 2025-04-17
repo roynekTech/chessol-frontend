@@ -1,4 +1,4 @@
-import { GameModel, GameDifficulty, GameStatusEnum } from "../models/Game";
+import { GameModel, GameDifficultyEnum, GameStatusEnum } from "../models/Game";
 import { GameTypeEnum } from "../models/types";
 import { baseHelper } from "../utils/baseHelper";
 import { DateTime } from "luxon";
@@ -31,6 +31,12 @@ async function createAiVsAiGame() {
 
   const startTime = DateTime.now();
   const endTime = startTime.plus({ seconds: DEFAULT_DURATION });
+  const modes = [
+    GameDifficultyEnum.EASY,
+    GameDifficultyEnum.MEDIUM,
+    GameDifficultyEnum.HARD,
+  ];
+  const randomMode = modes[Math.floor(Math.random() * modes.length)];
 
   const createGamesPromises = [];
 
@@ -42,7 +48,7 @@ async function createAiVsAiGame() {
         blackPlayerUsername: baseHelper.getRandomUsername(),
         gameType: GameTypeEnum.AI_VS_AI,
         status: GameStatusEnum.ACTIVE,
-        difficulty: GameDifficulty.EASY,
+        difficulty: randomMode,
         startTime,
         endTime,
       })

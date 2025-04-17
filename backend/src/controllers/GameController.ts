@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { apiResponseHelper } from "../utils/apiResponse";
 import { stockfishService } from "../services/StockfishService";
 import { gameService } from "../services/GameService";
+import { GameModel } from "../models/Game";
 
 async function getMove(req: Request, res: Response) {
   try {
@@ -22,7 +23,19 @@ async function getActiveGames(req: Request, res: Response) {
     return apiResponseHelper.sendError(res, error);
   }
 }
+
+async function getGameById(req: Request, res: Response) {
+  try {
+    const { id } = req.query as any;
+    const game = await GameModel.findById(id);
+    return apiResponseHelper.sendSuccess(res, game);
+  } catch (error) {
+    return apiResponseHelper.sendError(res, error);
+  }
+}
+
 export const gameController = {
   getMove,
   getActiveGames,
+  getGameById,
 };

@@ -23,7 +23,7 @@ interface IMove {
   timestamp: string;
 }
 
-interface Game {
+export interface IGame {
   _id: string;
   whitePlayer: string | null; // User ID or null for AI
   blackPlayer: string | null; // User ID or null for AI
@@ -51,7 +51,7 @@ export function OngoingGames() {
     data: gamesData,
     isLoading,
     error,
-  } = useGetData<Game[]>("/api/games/active-games", ["ongoingGames"], {
+  } = useGetData<IGame[]>("/api/games/active-games", ["ongoingGames"], {
     refetchInterval: 5000, // Refetch every 5 seconds
     retry: 3, // Retry failed requests 3 times
     onError: (error: Error) => {
@@ -60,7 +60,7 @@ export function OngoingGames() {
   });
   const games = gamesData?.data || [];
 
-  const getGameTitle = (game: Game) => {
+  const getGameTitle = (game: IGame) => {
     if (game.gameType === "AI_VS_AI") {
       return `AI vs AI`;
     } else if (game.gameType === "HUMAN_VS_AI") {
@@ -69,7 +69,7 @@ export function OngoingGames() {
     return "Human vs Human";
   };
 
-  const getGameIcon = (game: Game) => {
+  const getGameIcon = (game: IGame) => {
     if (game.gameType === "AI_VS_AI") {
       return <Bot className="h-4 w-4 text-purple-400 mr-2" />;
     } else if (game.gameType === "HUMAN_VS_AI") {

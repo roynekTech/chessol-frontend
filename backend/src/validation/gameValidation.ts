@@ -6,6 +6,11 @@ const getMoveQuery = Joi.object({
   skill: Joi.number().required(),
 });
 
+const getGameByIdQuery = Joi.object({
+  id: Joi.string().required(),
+});
+
 export const gameValidationSchema = {
   getMoveQuery,
+  getGameByIdQuery,
 };

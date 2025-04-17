@@ -13,4 +13,10 @@ router.get(
 
 router.get("/active-games", gameController.getActiveGames);
 
+router.get(
+  "/game-by-id",
+  validate(gameValidationSchema.getGameByIdQuery, "query"),
+  gameController.getGameById
+);
+
 export default router;

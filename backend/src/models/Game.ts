@@ -47,7 +47,7 @@ export interface IGame extends Document {
   readonly moveCount?: number;
 }
 
-export enum GameDifficulty {
+export enum GameDifficultyEnum {
   EASY = "easy",
   MEDIUM = "medium",
   HARD = "hard",
@@ -102,8 +102,8 @@ const GameSchema: Schema = new Schema<IGame>(
     },
     difficulty: {
       type: String,
-      enum: Object.values(GameDifficulty),
-      default: GameDifficulty.EASY,
+      enum: Object.values(GameDifficultyEnum),
+      default: GameDifficultyEnum.EASY,
     },
     completedAt: {
       type: Date,

@@ -3,7 +3,7 @@ import path from "path";
 import os from "os";
 import fs from "fs";
 import { ENV } from "../config/constants";
-import { GameDifficulty } from "../models/Game";
+import { GameDifficultyEnum } from "../models/Game";
 
 export interface IStockfishMoveResult {
   bestMove: string;
@@ -12,13 +12,13 @@ export interface IStockfishMoveResult {
   promotion?: string;
 }
 
-function mapDifficultyToSkillLevel(difficulty: GameDifficulty): number {
+function mapDifficultyToSkillLevel(difficulty: GameDifficultyEnum): number {
   switch (difficulty) {
-    case GameDifficulty.EASY:
+    case GameDifficultyEnum.EASY:
       return 5;
-    case GameDifficulty.MEDIUM:
+    case GameDifficultyEnum.MEDIUM:
       return 12;
-    case GameDifficulty.HARD:
+    case GameDifficultyEnum.HARD:
       return 20;
     default:
       return 5;
