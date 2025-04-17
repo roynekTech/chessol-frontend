@@ -3,12 +3,26 @@ import path from "path";
 import os from "os";
 import fs from "fs";
 import { ENV } from "../config/constants";
+import { GameDifficulty } from "../models/Game";
 
 export interface IStockfishMoveResult {
   bestMove: string;
   from: string;
   to: string;
   promotion?: string;
+}
+
+function mapDifficultyToSkillLevel(difficulty: GameDifficulty): number {
+  switch (difficulty) {
+    case GameDifficulty.EASY:
+      return 5;
+    case GameDifficulty.MEDIUM:
+      return 12;
+    case GameDifficulty.HARD:
+      return 20;
+    default:
+      return 5;
+  }
 }
 
 async function getBestMove(
@@ -79,4 +93,5 @@ async function getBestMove(
 
 export const stockfishService = {
   getBestMove,
+  mapDifficultyToSkillLevel,
 };

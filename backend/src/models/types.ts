@@ -17,15 +17,6 @@ export interface IUser extends Document {
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
-// Game-related types
-export enum GameStatusEnum {
-  WAITING = "waiting",
-  ACTIVE = "active",
-  COMPLETED = "completed",
-  ABANDONED = "abandoned",
-  DRAW = "draw",
-}
-
 export enum GameResultEnum {
   WHITE_WIN = "white_win",
   BLACK_WIN = "black_win",
@@ -46,45 +37,6 @@ export enum GameTypeEnum {
   AI_VS_AI = "AI_VS_AI",
   HUMAN_VS_AI = "HUMAN_VS_AI",
   HUMAN_VS_HUMAN = "HUMAN_VS_HUMAN",
-}
-
-export interface IMove {
-  from: string;
-  to: string;
-  promotion?: string;
-  fen: string;
-  san: string;
-  timestamp: Date;
-}
-
-export interface IGame extends Document {
-  whitePlayer: string | null; // User ID or null for AI
-  blackPlayer: string | null; // User ID or null for AI
-  currentTurn: "w" | "b";
-  moves: IMove[];
-  status: GameStatusEnum;
-  result: GameResultEnum;
-  timeControl: {
-    type: GameTimeControl;
-    initial: number; // Time in seconds
-    increment: number; // Increment in seconds
-  };
-  whiteTimeRemaining: number; // Time in seconds
-  blackTimeRemaining: number; // Time in seconds
-  currentPosition: string; // FEN
-  initialPosition: string; // FEN
-  aiDifficulty?: number; // Stockfish skill level (1-20)
-  createdAt: Date;
-  updatedAt: Date;
-  completedAt?: Date;
-  lastMoveAt?: Date;
-  isRated: boolean;
-  spectatorCount: number;
-  chatEnabled: boolean;
-  pgn: string;
-  gameType: GameTypeEnum; // Type of game (AI vs AI, Human vs AI, etc.)
-  whiteAiDifficulty?: number; // AI difficulty for white player
-  blackAiDifficulty?: number; // AI difficulty for black player
 }
 
 // Rating change record

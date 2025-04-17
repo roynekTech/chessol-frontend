@@ -2,27 +2,11 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import {
-  ArrowLeft,
-  Plus,
-  Eye,
-  Clock,
-  Bot,
-  Monitor,
-  ChevronRight,
-} from "lucide-react";
+import { ArrowLeft, Plus, Eye, Bot, Monitor, ChevronRight } from "lucide-react";
 import { GameModeModal } from "@/components/GameModeModal";
 import { useGetData } from "../utils/use-query-hooks";
-import { formatDistanceToNow } from "date-fns";
 
-// Type definitions for the game data
-interface TimeControl {
-  type: string;
-  initial: number;
-  increment: number;
-}
-
-interface Move {
+interface IMove {
   from: string;
   to: string;
   fen: string;
@@ -32,26 +16,22 @@ interface Move {
 
 interface Game {
   _id: string;
-  timeControl: TimeControl;
-  whitePlayer: string | null;
-  blackPlayer: string | null;
-  currentTurn: string;
-  moves: Move[];
+  whitePlayer: string | null; // User ID or null for AI
+  blackPlayer: string | null; // User ID or null for AI
+  whitePlayerUsername: string;
+  blackPlayerUsername: string;
+  currentTurn: "w" | "b";
+  moves: IMove[];
   status: string;
   result: string;
-  whiteTimeRemaining: number;
-  blackTimeRemaining: number;
-  currentPosition: string;
-  initialPosition: string;
-  isRated: boolean;
+  currentPosition: string; // FEN
+  initialPosition: string; // FEN
+  difficulty?: string; // Added to match schema
+  createdAt: Date;
+  updatedAt: Date;
+  completedAt?: Date;
   spectatorCount: number;
-  chatEnabled: boolean;
   gameType: string;
-  whiteAiDifficulty?: number;
-  blackAiDifficulty?: number;
-  createdAt: string;
-  updatedAt: string;
-  lastMoveAt: string;
 }
 
 export function OngoingGames() {
@@ -61,7 +41,7 @@ export function OngoingGames() {
     data: gamesData,
     isLoading,
     error,
-  } = useGetData<Game[]>("/api/games/ai/active", ["ongoingGames"], {
+  } = useGetData<Game[]>("/api/games/active-games", ["ongoingGames"], {
     refetchInterval: 5000, // Refetch every 5 seconds
     retry: 3, // Retry failed requests 3 times
     onError: (error: Error) => {
@@ -70,20 +50,11 @@ export function OngoingGames() {
   });
   const games = gamesData?.data || [];
 
-  const formatTimeControl = (timeControl: TimeControl) => {
-    const minutes = timeControl.initial / 60;
-    return `${minutes}+${timeControl.increment}`;
-  };
-
   const getGameTitle = (game: Game) => {
     if (game.gameType === "AI_VS_AI") {
-      return `AI (${game.whiteAiDifficulty}) vs AI (${game.blackAiDifficulty})`;
+      return `AI (${game.whitePlayerUsername}) vs AI (${game.blackPlayerUsername})`;
     }
     return "Human vs AI";
-  };
-
-  const getLastMoveTime = (lastMoveAt: string) => {
-    return formatDistanceToNow(new Date(lastMoveAt), { addSuffix: true });
   };
 
   return (
@@ -183,18 +154,11 @@ export function OngoingGames() {
                       {getGameTitle(game)}
                     </span>
                   </div>
-                  <div className="flex items-center text-xs text-gray-400">
-                    <Clock className="h-3 w-3 mr-1" />
-                    {getLastMoveTime(game.lastMoveAt)}
-                  </div>
                 </div>
 
                 {/* Game Info */}
                 <div className="p-4">
                   <div className="space-y-3">
-                    <div className="text-sm text-gray-400">
-                      Time Control: {formatTimeControl(game.timeControl)}
-                    </div>
                     <div className="text-sm text-gray-400">
                       Moves: {game.moves.length}
                     </div>

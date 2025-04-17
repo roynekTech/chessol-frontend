@@ -3,6 +3,9 @@ import cors from "cors";
 import { ENV } from "./config/constants";
 import connectDB from "./config/database";
 
+// import and initialize cron jobs
+import "./services/cronJobService";
+
 // Import routes
 import gameRoutes from "./routes/gameRoutes";
 

@@ -11,4 +11,6 @@ router.get(
   gameController.getMove
 );
 
+router.get("/active-games", gameController.getActiveGames);
+
 export default router;
