@@ -2,9 +2,18 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Eye, Bot, Monitor, ChevronRight } from "lucide-react";
+import {
+  ArrowLeft,
+  Plus,
+  Eye,
+  Bot,
+  Monitor,
+  ChevronRight,
+  Clock,
+} from "lucide-react";
 import { GameModeModal } from "@/components/GameModeModal";
 import { useGetData } from "../utils/use-query-hooks";
+import { DateTime } from "luxon";
 
 interface IMove {
   from: string;
@@ -32,6 +41,7 @@ interface Game {
   completedAt?: Date;
   spectatorCount: number;
   gameType: string;
+  endTime?: Date;
 }
 
 export function OngoingGames() {
@@ -52,9 +62,74 @@ export function OngoingGames() {
 
   const getGameTitle = (game: Game) => {
     if (game.gameType === "AI_VS_AI") {
-      return `AI (${game.whitePlayerUsername}) vs AI (${game.blackPlayerUsername})`;
+      return `AI vs AI`;
+    } else if (game.gameType === "HUMAN_VS_AI") {
+      return "Human vs AI";
     }
-    return "Human vs AI";
+    return "Human vs Human";
+  };
+
+  const getGameIcon = (game: Game) => {
+    if (game.gameType === "AI_VS_AI") {
+      return <Bot className="h-4 w-4 text-purple-400 mr-2" />;
+    } else if (game.gameType === "HUMAN_VS_AI") {
+      return <Bot className="h-4 w-4 text-blue-400 mr-2" />;
+    }
+    return <Monitor className="h-4 w-4 text-green-400 mr-2" />;
+  };
+
+  const getTimeRemaining = (endTime?: Date) => {
+    if (!endTime) return "No time limit";
+
+    const end = DateTime.fromJSDate(new Date(endTime));
+    const now = DateTime.now();
+
+    if (now > end) return "Time expired";
+
+    const diff = end.diff(now, ["minutes", "seconds"]);
+    return `${diff.minutes}m ${Math.floor(diff.seconds)}s`;
+  };
+
+  const getDifficultyLabel = (difficulty?: string) => {
+    if (!difficulty) return null;
+
+    const colors = {
+      easy: "bg-green-900/40 text-green-400",
+      medium: "bg-yellow-900/40 text-yellow-400",
+      hard: "bg-red-900/40 text-red-400",
+    };
+
+    const color =
+      colors[difficulty as keyof typeof colors] ||
+      "bg-gray-800/40 text-gray-400";
+
+    return (
+      <span className={`px-2 py-0.5 rounded-full text-xs ${color} capitalize`}>
+        {difficulty}
+      </span>
+    );
+  };
+
+  const getStatusBadge = (status: string) => {
+    const colors = {
+      active: "bg-green-900/40 text-green-400 border-green-900/60",
+      waiting: "bg-yellow-900/40 text-yellow-400 border-yellow-900/60",
+      completed: "bg-gray-800/40 text-gray-400 border-gray-800/60",
+      abandoned: "bg-red-900/40 text-red-400 border-red-900/60",
+      draw: "bg-blue-900/40 text-blue-400 border-blue-900/60",
+    };
+
+    const color =
+      colors[status as keyof typeof colors] ||
+      "bg-gray-800/40 text-gray-400 border-gray-800/60";
+
+    return (
+      <span
+        className={`px-2 py-0.5 rounded-full text-xs border ${color} capitalize`}
+      >
+        {status}
+      </span>
+    );
   };
 
   return (
@@ -149,32 +224,69 @@ export function OngoingGames() {
                 {/* Card header with game type badge */}
                 <div className="flex justify-between items-start p-4 border-b border-gray-800/50">
                   <div className="flex items-center">
-                    <Monitor className="h-4 w-4 text-blue-400 mr-2" />
+                    {getGameIcon(game)}
                     <span className="px-2 py-1 bg-gray-800/80 rounded-full text-xs font-medium">
                       {getGameTitle(game)}
                     </span>
                   </div>
+                  {getStatusBadge(game.status)}
                 </div>
 
                 {/* Game Info */}
                 <div className="p-4">
                   <div className="space-y-3">
-                    <div className="text-sm text-gray-400">
-                      Moves: {game.moves.length}
+                    <div className="flex justify-between items-center">
+                      <div className="text-sm text-white font-medium">
+                        {game.whitePlayerUsername}
+                      </div>
+                      <div className="text-xs text-gray-400">vs</div>
+                      <div className="text-sm text-white font-medium text-right">
+                        {game.blackPlayerUsername}
+                      </div>
                     </div>
-                    <div className="text-sm text-gray-400">
-                      Spectators: {game.spectatorCount}
+
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-1">
+                        <div
+                          className={`w-2 h-2 rounded-full ${
+                            game.currentTurn === "w"
+                              ? "bg-green-400"
+                              : "bg-gray-600"
+                          }`}
+                        ></div>
+                        <span className="text-gray-400">White</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-gray-400">Black</span>
+                        <div
+                          className={`w-2 h-2 rounded-full ${
+                            game.currentTurn === "b"
+                              ? "bg-green-400"
+                              : "bg-gray-600"
+                          }`}
+                        ></div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-3 w-3 text-amber-400" />
+                        <span className="text-amber-300">
+                          {getTimeRemaining(game.endTime)}
+                        </span>
+                      </div>
+                      <div>{getDifficultyLabel(game.difficulty)}</div>
+                    </div>
+
+                    <div className="flex justify-between text-xs text-gray-400">
+                      <div>Moves: {game.moves.length}</div>
+                      <div>Spectators: {game.spectatorCount}</div>
                     </div>
                   </div>
                 </div>
 
                 {/* Card footer with action button */}
-                <div className="bg-black/40 p-4 flex justify-between items-center">
-                  <div className="flex items-center text-sm text-gray-400">
-                    <span className="bg-gray-800/50 px-2 py-0.5 rounded-full text-xs">
-                      {game.status}
-                    </span>
-                  </div>
+                <div className="bg-black/40 p-4 flex justify-end items-center">
                   <Button
                     size="sm"
                     variant="outline"
