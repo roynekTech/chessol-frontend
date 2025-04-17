@@ -19,7 +19,10 @@ interface MoveResponse {
 export function ChessGame() {
   const navigate = useNavigate();
   const location = useLocation();
-  const queryParams = React.useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const queryParams = React.useMemo(
+    () => new URLSearchParams(location.search),
+    [location.search]
+  );
 
   // Get game settings from URL parameters
   const initialMode = queryParams.get("mode") || "computer";
@@ -195,95 +198,106 @@ export function ChessGame() {
     if (moveTrail) {
       const timer = setTimeout(() => {
         setMoveTrail(null);
-      }, 2000);
+      }, 2000); // Keep trail for 2 seconds
 
       return () => clearTimeout(timer);
     }
   }, [moveTrail]);
 
-  // Computer move function
-  const getComputerMove = useCallback(async () => {
-    console.log("getComputerMove called ", {
+  // Trigger computer's turn by setting isThinking flag (enables data fetch)
+  useEffect(() => {
+    console.log("Computer turn check - gameMode:", {
       gameMode,
-      currentPlayer,
       computerColor,
+      currentPlayer,
+      isThinking,
+      isGameOver: game.isGameOver(),
     });
 
-    // Corrected logic: Computer should play when it's the computer's color's turn
-    if (gameMode !== "computer" || currentPlayer !== computerColor) {
-      console.log("Not computer's turn or not in computer mode");
-      return;
+    if (
+      gameMode === "computer" &&
+      computerColor === currentPlayer &&
+      !isThinking &&
+      !game.isGameOver()
+    ) {
+      console.log(
+        "Computer's turn, setting isThinking to true to trigger fetch..."
+      );
+      setIsThinking(true);
+      // The useGetData hook will now fetch because 'enabled' is true and fen/difficulty might change.
     }
+    // Add game to dependencies to re-evaluate if game over state changes
+  }, [currentPlayer, computerColor, gameMode, isThinking, game]);
 
-    setIsThinking(true);
+  // Effect to process the computer's move once moveData is available
+  useEffect(() => {
+    // Only proceed if the computer is thinking and we have move data
+    if (isThinking && moveData) {
+      console.log("Received moveData while thinking:", moveData);
+      try {
+        // Optional: Short delay for perceived thinking, can be removed
+        // await new Promise(resolve => setTimeout(resolve, 100));
 
-    try {
-      // Add a small delay to simulate "thinking"
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      const move = game.move({
-        from: moveData?.from || "",
-        to: moveData?.to || "",
-        promotion: moveData?.promotion || undefined,
-      });
-
-      if (move) {
-        // Show move trail animation
-        setMoveTrail({
-          from: move.from,
-          to: move.to,
+        const move = game.move({
+          from: moveData.from,
+          to: moveData.to,
+          // Ensure promotion defaults to 'q' if not provided, matching human move logic
+          promotion: moveData.promotion || "q",
         });
 
-        // Check for captures
-        if (move.captured) {
-          const capturedPiece = {
-            type: move.captured,
-            color: move.color === "w" ? "b" : "w",
-          };
-          setCapturedPieces((prev) => ({
-            ...prev,
-            [move.color]: [
-              ...prev[move.color as keyof typeof prev],
-              capturedPiece,
-            ],
-          }));
+        if (move) {
+          console.log("Computer move successful:", move);
+          setMoveTrail({ from: move.from, to: move.to });
 
-          // Switch active timer
-          setActiveTimer(game.turn() as string);
+          if (move.captured) {
+            const capturedPiece = {
+              type: move.captured,
+              // The color of the captured piece is the *opposite* of the mover's color
+              color: move.color === "w" ? "b" : "w",
+            };
+            setCapturedPieces((prev) => {
+              // Ensure we update the correct side's captured pieces array
+              const opponentColor = move.color === "w" ? "b" : "w";
+              return {
+                ...prev,
+                [opponentColor]: [...prev[opponentColor], capturedPiece],
+              };
+            });
+          }
 
-          // Update game status
+          // *** CORE FIX: Update status *after* the move is made ***
           updateGameStatus();
+          // Switch timer *after* updating status (which updates game.turn())
+          setActiveTimer(game.turn() as string);
         } else {
-          console.error("Computer did not return a valid move");
+          // This indicates the move received from the API was illegal for the current position
+          console.error(
+            "Computer move failed: Invalid move received from API or illegal move",
+            moveData,
+            `FEN: ${game.fen()}`
+          );
+          // Consider how to handle this - maybe skip turn, show error?
+          // For now, just stop thinking to prevent infinite loops if API keeps sending bad moves.
         }
+      } catch (error) {
+        // This catches errors from game.move() itself (e.g., if moveData is malformed)
+        console.error(
+          "Error executing computer move:",
+          error,
+          moveData,
+          `FEN: ${game.fen()}`
+        );
+      } finally {
+        // Crucial: Reset thinking state regardless of success or failure
+        console.log(
+          "Computer finished processing move, setting isThinking to false."
+        );
+        setIsThinking(false);
       }
-    } catch (error) {
-      console.error("Error getting computer move:", error);
-    } finally {
-      setIsThinking(false);
     }
-  }, [
-    moveData,
-    game,
-    gameMode,
-    currentPlayer,
-    computerColor,
-    updateGameStatus,
-  ]);
-
-  // Trigger computer move when it's the computer's turn
-  useEffect(() => {
-    console.log("Move trigger effect - gameMode:", {
-      gameMode,
-      computerColor,
-      currentPlayer,
-    });
-
-    if (gameMode === "computer" && computerColor === currentPlayer) {
-      console.log("Computer's turn, triggering move...");
-      getComputerMove();
-    }
-  }, [currentPlayer, computerColor, gameMode, getComputerMove]);
+    // This effect should run when moveData potentially updates, but only act if isThinking is true.
+    // Including game and updateGameStatus ensures the latest game state and functions are used.
+  }, [moveData, isThinking, game, updateGameStatus]);
 
   // Initialize the game state
   useEffect(() => {
@@ -569,7 +583,7 @@ export function ChessGame() {
     // Start computer move if computer plays as white
     if (gameMode === "computer" && computerColor === "w") {
       setTimeout(() => {
-        getComputerMove();
+        setIsThinking(true);
       }, 1000);
     }
   };
