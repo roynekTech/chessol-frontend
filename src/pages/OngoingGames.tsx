@@ -141,6 +141,7 @@ export function OngoingGames() {
       {/* Header with animated underline */}
       <div className="max-w-6xl mx-auto mb-12">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+          {/* Back to home button */}
           <Button
             variant="ghost"
             onClick={() => navigate("/")}
@@ -156,6 +157,7 @@ export function OngoingGames() {
             <span className="block h-1 max-w-0 group-hover:max-w-full transition-all duration-500 bg-gradient-to-r from-amber-400 via-orange-500 to-yellow-500"></span>
           </h1>
 
+          {/* Start game button */}
           <Button
             className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 rounded-full shadow-lg shadow-amber-900/20 font-medium transition-all duration-300 transform hover:scale-105"
             onClick={() => setIsModalOpen(true)}

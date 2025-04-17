@@ -29,7 +29,7 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
 
     // Navigate to the game with query parameters
     navigate(
-      `/game?mode=${gameMode}&computerColor=${computerColor}&difficulty=${difficulty}`
+      `/games?mode=${gameMode}&computerColor=${computerColor}&difficulty=${difficulty}`
     );
   };
 
@@ -59,12 +59,15 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-gradient-to-b from-gray-900 to-black text-white border border-amber-900/20 max-w-md w-full rounded-xl p-0 shadow-xl shadow-amber-900/10 overflow-hidden">
+      <DialogContent
+        className="bg-gradient-to-b from-gray-900 to-black text-white border border-amber-900/20 max-w-md w-full rounded-xl p-0 shadow-xl shadow-amber-900/10 overflow-hidden max-h-[90vh] overflow-y-auto sm:max-h-[80vh] sm:p-0"
+        style={{ overscrollBehavior: 'contain' }}
+      >
         {/* Background glow effect */}
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-amber-500/10 rounded-full filter blur-3xl pointer-events-none"></div>
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-700/10 rounded-full filter blur-3xl pointer-events-none"></div>
 
-        <div className="relative z-10 p-6">
+        <div className="relative z-10 p-4 sm:p-6">
           <DialogHeader className="mb-6">
             <DialogTitle className="text-3xl font-bold text-center">
               <span className="bg-gradient-to-r from-amber-400 via-orange-500 to-yellow-500 text-transparent bg-clip-text">
