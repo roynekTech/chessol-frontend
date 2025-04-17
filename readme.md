@@ -23,19 +23,6 @@ The application now follows a more intuitive flow:
 - Enhanced game cards with improved layout and visual cues
 - Redesigned modals for game mode selection
 
-## Customization Notes
-
-### Required Images
-
-For the best visual experience, add the following images to the `frontend/public` directory:
-
-- `chess-background.jpg` - A high-quality chess-themed background image
-- `chess-pieces-silhouette.png` - A silhouette of chess pieces for decorative purposes
-
-After adding these images:
-
-1. In `LandingPage.tsx`, change `hasSilhouette` from `false` to `true` to enable the decorative chess piece silhouettes.
-
 ### Theme Colors
 
 The application uses a consistent color palette:

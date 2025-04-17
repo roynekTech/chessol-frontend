@@ -2,25 +2,27 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, Wallet } from "lucide-react";
+import {
+  WalletMultiButton,
+  WalletDisconnectButton,
+} from "@solana/wallet-adapter-react-ui";
+import { useWallet } from "@solana/wallet-adapter-react";
 
 export function LandingPage() {
   const navigate = useNavigate();
+  const { publicKey, connected } = useWallet();
 
-  // Check if the background image exists, if not use a fallback gradient
-  const backgroundStyle = {
-    backgroundImage: `url(/chess-background.jpg)`,
-    backgroundSize: "cover",
-    backgroundPosition: "center",
+  // Helper to format the wallet address for display
+  const getDisplayAddress = () => {
+    if (!publicKey) return "";
+    const base58 = publicKey.toBase58();
+    return base58.length > 8
+      ? `${base58.slice(0, 4)}...${base58.slice(-4)}`
+      : base58;
   };
 
-  // Silhouette image might be missing, so we'll make it conditional
-  const hasSilhouette = false; // Set to true once the image is added to the public folder
-
   return (
-    <div
-      className="relative flex flex-col items-center justify-center min-h-screen text-white p-4 overflow-hidden bg-black"
-      style={backgroundStyle}
-    >
+    <div className="relative flex flex-col items-center justify-center min-h-screen text-white p-4 overflow-hidden bg-black">
       {/* Dark overlay for better text contrast */}
       <div className="absolute inset-0 bg-gradient-to-b from-black/90 via-black/80 to-black/95 z-0"></div>
 
@@ -76,7 +78,7 @@ export function LandingPage() {
           >
             <Button
               size="lg"
-              className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold text-lg px-10 py-6 rounded-full shadow-lg shadow-amber-900/20 hover:shadow-xl transition-all duration-300 w-full sm:w-auto"
+              className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold text-lg px-10 py-6 rounded-full shadow-lg shadow-amber-900/20 hover:shadow-xl transition-all duration-300 w-full sm:w-auto cursor-pointer"
               onClick={() => navigate("/games")}
             >
               Get Started
@@ -89,33 +91,50 @@ export function LandingPage() {
           >
             <Button
               size="lg"
-              className="bg-black/40 backdrop-blur-sm text-gray-300 border border-purple-700/50 hover:border-amber-500 hover:text-white hover:shadow-[0_0_15px_rgba(245,158,11,0.3)] font-semibold text-lg px-10 py-6 rounded-full shadow-md transition-all duration-300 w-full sm:w-auto"
-              onClick={() =>
-                console.log("Connect Wallet Clicked (Not Implemented)")
-              }
+              className="bg-black/40 backdrop-blur-sm text-gray-300 border border-purple-700/50 hover:border-amber-500 hover:text-white hover:shadow-[0_0_15px_rgba(245,158,11,0.3)] font-semibold text-lg px-10 py-6 rounded-full shadow-md transition-all duration-300 w-full sm:w-auto cursor-pointer"
+              onClick={() => {
+                const walletButton = document.querySelector(
+                  ".wallet-adapter-button-trigger"
+                );
+                if (walletButton instanceof HTMLElement) {
+                  walletButton.click();
+                }
+              }}
             >
               <Wallet className="mr-2 h-5 w-5" />
-              Connect Wallet
+              {connected && publicKey ? getDisplayAddress() : "Connect Wallet"}
             </Button>
+            <div className="hidden">
+              <WalletMultiButton />
+            </div>
           </motion.div>
         </motion.div>
       </div>
 
-      {/* Chess piece silhouettes in the background */}
-      {hasSilhouette && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 0.15 }}
-          transition={{ duration: 2, delay: 1 }}
-          className="absolute bottom-0 left-0 w-full h-40 pointer-events-none z-0"
-          style={{
-            backgroundImage: `url(/chess-pieces-silhouette.png)`,
-            backgroundSize: "contain",
-            backgroundPosition: "bottom center",
-            backgroundRepeat: "repeat-x",
-          }}
-        ></motion.div>
-      )}
+      {/* disconnect button */}
+      <div className="fixed top-3 right-2 z-20">
+        {connected && (
+          <Button
+            className="bg-black/40 backdrop-blur-sm text-gray-300 border border-purple-700/50 hover:border-amber-500 hover:text-white hover:shadow-[0_0_15px_rgba(245,158,11,0.3)] font-semibold text-base px-6 py-6 rounded-full shadow-md transition-all duration-300 cursor-pointer"
+            onClick={() => {
+              const walletButtons = document.querySelectorAll(
+                ".wallet-adapter-button-trigger"
+              );
+              console.log("walletButton", walletButtons);
+              for (const walletButton of walletButtons) {
+                if (walletButton instanceof HTMLElement) {
+                  walletButton.click();
+                }
+              }
+            }}
+          >
+            Disconnect Wallet
+          </Button>
+        )}
+        <div className="hidden">
+          <WalletDisconnectButton />
+        </div>
+      </div>
 
       {/* Optional Subtle Footer */}
       <footer className="absolute bottom-5 text-center w-full text-gray-500 text-xs z-10">
