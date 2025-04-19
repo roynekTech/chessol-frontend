@@ -12,7 +12,6 @@ import {
   Clock,
 } from "lucide-react";
 import { GameModeModal } from "@/components/GameModeModal";
-import { useGetData } from "../utils/use-query-hooks";
 import { DateTime } from "luxon";
 
 interface IMove {
@@ -47,18 +46,10 @@ export interface IGame {
 export function OngoingGames() {
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const {
-    data: gamesData,
-    isLoading,
-    error,
-  } = useGetData<IGame[]>("/api/games/active-games", ["ongoingGames"], {
-    refetchInterval: 5000, // Refetch every 5 seconds
-    retry: 3, // Retry failed requests 3 times
-    onError: (error: Error) => {
-      console.error("Failed to fetch games:", error);
-    },
-  });
+  const gamesData: { data: IGame[] } = { data: [] };
   const games = gamesData?.data || [];
+  const isLoading = false; // Replace with actual loading state
+  const error = false; // Replace with actual error state
 
   const getGameTitle = (game: IGame) => {
     if (game.gameType === "AI_VS_AI") {
