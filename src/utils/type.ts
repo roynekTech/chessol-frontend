@@ -237,3 +237,13 @@ export type TWebSocketOutgoing =
   | IWSResignMessage
   | IWSReconnectMessage
   | IWSPairRequestMessage;
+
+// ---- Localstorage items ----
+export enum LocalStorageKeysEnum {
+  GameDetails = "gameDetails",
+}
+export interface IGameDetailsLocalStorage {
+  gameId: string;
+  fen: string;
+  isBetting: boolean;
+}

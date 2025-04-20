@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Dialog,
@@ -12,6 +12,17 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { User, Bot, Swords, Trophy, Zap, Crown } from "lucide-react";
 import { useWallet } from "@solana/wallet-adapter-react";
+import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
+import { useWebSocket } from "../utils/useWebSocket";
+import {
+  IGameDetailsLocalStorage,
+  IWSCreatedMessage,
+  LocalStorageKeysEnum,
+  WebSocketMessageTypeEnum,
+} from "../utils/type";
+import { localStorageHelper } from "../utils/localStorageHelper";
+import { toast } from "sonner";
 
 interface GameModeModalProps {
   open: boolean;
@@ -23,19 +34,73 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
   const [gameMode, setGameMode] = useState<"human" | "computer">("human");
   const [computerColor, setComputerColor] = useState<"w" | "b">("b");
   const [difficulty, setDifficulty] = useState<number>(10);
+  const [duration, setDuration] = useState<number>(300000); // default 5 min
+  const [isBetting, setIsBetting] = useState<boolean>(false);
+  const [playerAmount, setPlayerAmount] = useState<string>("");
+  const [transactionId, setTransactionId] = useState<string>("");
+  const [side, setSide] = useState<"w" | "b">("w");
   const { publicKey } = useWallet();
   const walletAddress = publicKey?.toBase58() || "";
-  console.log("walletAddress", walletAddress);
+
+  const [userClickedCreate, setUserClickedCreate] = useState<boolean>(false);
+  const [gameCreated, setGameCreated] = useState<boolean>(false);
+
+  const { sendMessage, lastMessage } = useWebSocket();
 
   const handleStartGame = () => {
-    // Close the modal
-    onOpenChange(false);
+    // Validation: if betting, require amount and txHash
+    if (isBetting && (!playerAmount || !transactionId)) {
+      // Optionally show error UI here
+      return;
+    }
+    // Send message to WebSocket server
+    const message = {
+      type: WebSocketMessageTypeEnum.Create,
+      walletAddress,
+      side, // <-- use selected side
+      duration,
+      isBetting,
+      transactionId,
+      playerAmount: isBetting ? Number(playerAmount) : null,
+    };
+    sendMessage(JSON.stringify(message));
 
-    // Navigate to the game with query parameters
-    navigate(
-      `/games?mode=${gameMode}&computerColor=${computerColor}&difficulty=${difficulty}`
-    );
+    // keep track of when user click the create game button
+    setUserClickedCreate(true);
   };
+
+  // listen to ws
+  useEffect(() => {
+    if (!lastMessage?.data || !lastMessage?.event) return;
+
+    const messageData = JSON.parse(
+      lastMessage.data
+    ) as unknown as IWSCreatedMessage;
+
+    if (messageData.type === WebSocketMessageTypeEnum.Created) {
+      const data: IGameDetailsLocalStorage = {
+        gameId: messageData.gameId,
+        fen: messageData.fen,
+        isBetting: messageData.isBetting,
+      };
+      localStorageHelper.setItem(LocalStorageKeysEnum.GameDetails, data);
+
+      setGameCreated(true);
+      setUserClickedCreate(false);
+      // navigate to lobby
+      navigate("/lobby");
+    }
+  }, [lastMessage, navigate]);
+
+  // show error after 10 seconds if game is not created
+  useEffect(() => {
+    if (userClickedCreate && !gameCreated) {
+      setTimeout(() => {
+        toast.error("Game creation failed, please try again");
+        setUserClickedCreate(false);
+      }, 10000);
+    }
+  }, [userClickedCreate, gameCreated]);
 
   // Define difficulty info
   const difficultyInfo = {
@@ -135,6 +200,130 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
                 </div>
               </RadioGroup>
             </motion.div>
+
+            {/* Side Selection */}
+            <div>
+              <h3 className="mb-3 font-medium text-gray-300 flex items-center">
+                <Zap className="mr-2 h-4 w-4 text-amber-400" />
+                Choose Side
+              </h3>
+              <RadioGroup
+                defaultValue={side}
+                onValueChange={(value) => setSide(value as "w" | "b")}
+                className="grid grid-cols-2 gap-4"
+              >
+                <div>
+                  <RadioGroupItem
+                    value="w"
+                    id="side-white"
+                    className="peer sr-only"
+                  />
+                  <Label
+                    htmlFor="side-white"
+                    className="flex flex-col items-center justify-between rounded-xl border border-gray-700 bg-black/40 backdrop-blur-sm p-4 hover:bg-gray-800/40 hover:border-amber-700/50 hover:shadow-md hover:shadow-amber-900/10 peer-data-[state=checked]:border-amber-500 [&:has([data-state=checked])]:border-amber-500 [&:has([data-state=checked])]:bg-gradient-to-b [&:has([data-state=checked])]:from-amber-950/30 [&:has([data-state=checked])]:to-black/40 transition-all duration-200 cursor-pointer"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-white/80 to-gray-200/60 flex items-center justify-center mb-2 border border-gray-400">
+                      <span className="text-black text-2xl font-bold">♔</span>
+                    </div>
+                    <div className="text-sm font-medium">White</div>
+                  </Label>
+                </div>
+                <div>
+                  <RadioGroupItem
+                    value="b"
+                    id="side-black"
+                    className="peer sr-only"
+                  />
+                  <Label
+                    htmlFor="side-black"
+                    className="flex flex-col items-center justify-between rounded-xl border border-gray-700 bg-black/40 backdrop-blur-sm p-4 hover:bg-gray-800/40 hover:border-amber-700/50 hover:shadow-md hover:shadow-amber-900/10 peer-data-[state=checked]:border-amber-500 [&:has([data-state=checked])]:border-amber-500 [&:has([data-state=checked])]:bg-gradient-to-b [&:has([data-state=checked])]:from-amber-950/30 [&:has([data-state=checked])]:to-black/40 transition-all duration-200 cursor-pointer"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-900/80 to-black/80 flex items-center justify-center mb-2 border border-gray-700">
+                      <span className="text-white text-2xl font-bold">♚</span>
+                    </div>
+                    <div className="text-sm font-medium">Black</div>
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            {/* Duration Selection */}
+            <div>
+              <h3 className="mb-3 font-medium text-gray-300 flex items-center">
+                <Zap className="mr-2 h-4 w-4 text-amber-400" />
+                Duration
+              </h3>
+              <RadioGroup
+                defaultValue={String(duration)}
+                onValueChange={(value) => setDuration(Number(value))}
+                className="grid grid-cols-2 gap-4"
+              >
+                {[300000, 600000, 900000, 1800000].map((ms) => (
+                  <div key={ms}>
+                    <RadioGroupItem
+                      value={String(ms)}
+                      id={`duration-${ms}`}
+                      className="peer sr-only"
+                    />
+                    <Label
+                      htmlFor={`duration-${ms}`}
+                      className="flex flex-col items-center justify-between rounded-xl border border-gray-700 bg-black/40 backdrop-blur-sm p-3 hover:bg-gray-800/40 hover:border-amber-700/50 peer-data-[state=checked]:border-amber-500 [&:has([data-state=checked])]:border-amber-500 [&:has([data-state=checked])]:bg-gradient-to-b [&:has([data-state=checked])]:from-amber-950/30 [&:has([data-state=checked])]:to-black/40 transition-all duration-200 cursor-pointer"
+                    >
+                      <span className="text-lg font-semibold">
+                        {ms / 60000} min
+                      </span>
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
+
+            {/* Betting Section */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-medium text-gray-300 flex items-center">
+                  <Zap className="mr-2 h-4 w-4 text-amber-400" />
+                  Betting
+                </h3>
+                <Switch
+                  checked={isBetting}
+                  onCheckedChange={setIsBetting}
+                  className="ml-2"
+                />
+              </div>
+              {isBetting && (
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="bet-amount" className="text-gray-300">
+                      Amount
+                    </Label>
+                    <Input
+                      id="bet-amount"
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      placeholder="Enter amount (e.g. 0.1)"
+                      value={playerAmount}
+                      onChange={(e) => setPlayerAmount(e.target.value)}
+                      className="mt-1 bg-black/40 border-gray-700 text-white"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="tx-hash" className="text-gray-300">
+                      Transaction Hash
+                    </Label>
+                    <Input
+                      id="tx-hash"
+                      type="text"
+                      placeholder="Enter transaction hash"
+                      value={transactionId}
+                      onChange={(e) => setTransactionId(e.target.value)}
+                      className="mt-1 bg-black/40 border-gray-700 text-white"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Computer Settings (conditionally shown) */}
             {gameMode === "computer" && (
@@ -238,6 +427,11 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
               <Button
                 className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 font-semibold py-6 rounded-xl shadow-lg shadow-amber-900/20 transition-all duration-300 transform hover:translate-y-[-2px]"
                 onClick={handleStartGame}
+                disabled={
+                  isBetting &&
+                  (!playerAmount || !transactionId) &&
+                  !userClickedCreate
+                }
               >
                 <Swords className="mr-2 h-5 w-5" />
                 Start Game
