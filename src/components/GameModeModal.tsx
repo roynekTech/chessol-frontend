@@ -95,10 +95,14 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
   // show error after 10 seconds if game is not created
   useEffect(() => {
     if (userClickedCreate && !gameCreated) {
-      setTimeout(() => {
+      const timeout = setTimeout(() => {
         toast.error("Game creation failed, please try again");
         setUserClickedCreate(false);
       }, 10000);
+
+      return () => {
+        clearTimeout(timeout);
+      };
     }
   }, [userClickedCreate, gameCreated]);
 
