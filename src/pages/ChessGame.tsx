@@ -6,14 +6,8 @@ import { Crown, Clock, RotateCw, Trophy, ArrowLeft } from "lucide-react";
 import * as React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { estimateElo } from "../utils/chessUtils";
-import { useGetData } from "../utils/use-query-hooks";
-
-interface MoveResponse {
-  bestMove: string;
-  from: string;
-  to: string;
-  promotion?: string;
-}
+import { usePostData } from "../utils/use-query-hooks";
+import { IGetBestMovePayload, IGetBestMoveResponse } from "../utils/type";
 
 // Simplified chess board component to avoid TypeScript issues with chess.js
 export function ChessGame() {
@@ -71,49 +65,37 @@ export function ChessGame() {
     to: string;
   } | null>(null);
 
-  // Move the hook call after all required variables are declared
-  const { data: moveResponse } = useGetData<MoveResponse>(
-    `api/games/get-move?fen=${fen}&depth=${difficulty}&skill=${difficulty}`,
-    ["chess", "move", fen, difficulty.toString()],
-    {
-      enabled: gameMode === "computer" && currentPlayer === computerColor,
-    }
-  );
-  const moveData = moveResponse?.data;
+  const [moveData, setLastMove] = useState<{
+    from: string;
+    to: string;
+    bestMove: string;
+    promotion?: string;
+  } | null>(null);
 
-  console.log("moveData", moveData);
+  // Hook to fetch the best move from the server
+  const {
+    mutate: getBestMove,
+    isSuccess: bestMovedRetrieved,
+    isError: errorGettingBestMove,
+  } = usePostData<IGetBestMoveResponse, IGetBestMovePayload>(`get_best_move`, [
+    "move",
+  ]);
 
-  // Function to adjust difficulty (not exposed in UI yet)
-  const adjustDifficulty = useCallback((newDifficulty: number) => {
-    // Clamp difficulty between 1-20
-    const clampedDifficulty = Math.min(20, Math.max(1, newDifficulty));
-    setDifficulty(clampedDifficulty);
-    console.log(
-      `Difficulty adjusted to: ${clampedDifficulty} (ELO ~${estimateElo(
-        clampedDifficulty
-      )})`
-    );
-  }, []);
-
-  // Add keyboard shortcuts for debugging and power users
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      // Only in development or for power users
-      if (event.ctrlKey && event.shiftKey) {
-        // Ctrl+Shift+ArrowUp/ArrowDown to adjust difficulty
-        if (event.key === "ArrowUp") {
-          adjustDifficulty(difficulty + 1);
-        } else if (event.key === "ArrowDown") {
-          adjustDifficulty(difficulty - 1);
-        }
+  // Fetch the best move from the server
+  const handleGetBestMove = () => {
+    getBestMove(
+      {
+        fen,
+        game_id: "randomGameId",
+        level: difficulty,
+      },
+      {
+        onSuccess: (data) => {
+          console.log("Best move retrieved successfully", data);
+        },
       }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [adjustDifficulty, difficulty]);
+    );
+  };
 
   // Fetch game data if spectating
   useEffect(() => {
@@ -225,6 +207,7 @@ export function ChessGame() {
       );
       setIsThinking(true);
       // The useGetData hook will now fetch because 'enabled' is true and fen/difficulty might change.
+      handleGetBestMove();
     }
     // Add game to dependencies to re-evaluate if game over state changes
   }, [currentPlayer, computerColor, gameMode, isThinking, game]);
@@ -235,9 +218,6 @@ export function ChessGame() {
     if (isThinking && moveData) {
       console.log("Received moveData while thinking:", moveData);
       try {
-        // Optional: Short delay for perceived thinking, can be removed
-        // await new Promise(resolve => setTimeout(resolve, 100));
-
         const move = game.move({
           from: moveData.from,
           to: moveData.to,
@@ -312,8 +292,9 @@ export function ChessGame() {
         game.isGameOver() ||
         isSpectating ||
         (gameMode === "computer" && game.turn() === computerColor)
-      )
+      ) {
         return;
+      }
 
       if (selectedSquare) {
         // Try to make a move

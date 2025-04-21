@@ -49,7 +49,7 @@ export function useWebSocket(
   }, []);
 
   useEffect(() => {
-    const ws = new ReconnectingWebSocket(url, options.protocols);
+    const ws = new ReconnectingWebSocket(url, options?.protocols);
     wsRef.current = ws;
 
     ws.addEventListener("open", (event: RwsEvent) => {
@@ -63,6 +63,7 @@ export function useWebSocket(
     });
     ws.addEventListener("message", (event: MessageEvent) => {
       const msg = { data: event.data, event };
+      console.log("new message", event.data);
       setLastMessage(msg);
       options.onMessage?.(msg);
     });

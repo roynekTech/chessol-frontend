@@ -89,9 +89,11 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
     }
     setIsJoining(true);
     const timeoutId = setTimeout(() => {
-      setIsJoining(false);
-      toast.error("Join request timed out. Please try again.");
-    }, 4000);
+      if (isJoining) {
+        setIsJoining(false);
+        toast.error("Join request timed out. Please try again.");
+      }
+    }, 8000);
     const message: IWSJoinMessagePayload = {
       type: WebSocketMessageTypeEnum.Join,
       gameId: gameId,

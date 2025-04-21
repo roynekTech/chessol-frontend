@@ -2,8 +2,28 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Copy, Crown, LogOut } from "lucide-react";
 import { localStorageHelper } from "../utils/localStorageHelper";
-import { LocalStorageKeysEnum, IGameDetailsLocalStorage } from "../utils/type";
+import {
+  LocalStorageKeysEnum,
+  IGameDetailsLocalStorage,
+  IWSPairedMessage,
+} from "../utils/type";
 import { useNavigate } from "react-router-dom";
+import { useWebSocket } from "../utils/useWebSocket";
+import { WebSocketMessageTypeEnum } from "../utils/type";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 // Array of chess tips/facts for engagement
 const CHESS_TIPS = [
@@ -25,6 +45,7 @@ export function Lobby() {
   const [copied, setCopied] = useState(false);
   const [tip, setTip] = useState<string>("");
   const navigate = useNavigate();
+  const { lastMessage } = useWebSocket();
 
   useEffect(() => {
     // Fetch game details from localStorage
@@ -35,6 +56,24 @@ export function Lobby() {
     // Pick a random tip
     setTip(CHESS_TIPS[Math.floor(Math.random() * CHESS_TIPS.length)]);
   }, []);
+
+  useEffect(() => {
+    if (!lastMessage?.data) return;
+    let messageData: IWSPairedMessage | { type: string; gameId?: string };
+    try {
+      messageData = JSON.parse(lastMessage.data);
+    } catch {
+      return;
+    }
+    // Listen for paired event for this game
+    if (
+      messageData.type === WebSocketMessageTypeEnum.Joined &&
+      messageData.gameId === gameId
+    ) {
+      // Optionally, show a quick message or spinner here
+      navigate(`/game/${gameId}`);
+    }
+  }, [lastMessage, gameId, navigate]);
 
   const handleCopy = () => {
     if (!gameId) return;
@@ -50,90 +89,91 @@ export function Lobby() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-950 via-black to-gray-900">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-950 via-black to-gray-900 p-4">
       {/* Subtle background glows for depth */}
       <div className="fixed top-0 right-0 w-96 h-96 bg-amber-600/10 rounded-full filter blur-3xl pointer-events-none z-0"></div>
       <div className="fixed bottom-0 left-0 w-96 h-96 bg-purple-800/10 rounded-full filter blur-3xl pointer-events-none z-0"></div>
-      <div className="relative w-full max-w-md mx-auto rounded-2xl bg-gradient-to-b from-gray-900/80 to-black/90 border border-amber-900/30 shadow-2xl shadow-amber-900/10 p-8 sm:p-10 backdrop-blur-xl z-10">
-        {/* Animated waiting avatar and message */}
-        <div className="flex flex-col items-center mb-8">
-          {/* Pulsing chess king avatar */}
-          <div className="relative mb-4">
-            <span className="absolute inset-0 flex items-center justify-center animate-ping-slow">
-              <Crown className="w-16 h-16 text-amber-400 opacity-30" />
-            </span>
-            <span className="relative z-10">
-              <Crown className="w-16 h-16 text-amber-400 drop-shadow-lg" />
+
+      {/* Main Lobby Card */}
+      <Card className="relative w-full max-w-md mx-auto rounded-2xl bg-gradient-to-b from-gray-900/80 to-black/90 border border-amber-900/30 shadow-2xl shadow-amber-900/10 backdrop-blur-xl z-10 overflow-hidden">
+        <CardHeader className="items-center text-center pt-8 sm:pt-10 pb-6">
+          {/* Updated Header Icons */}
+          <div className="flex items-center justify-center space-x-4 mb-5">
+            <Crown className="w-12 h-12 text-amber-400 drop-shadow-lg" />
+            <Crown className="w-12 h-12 text-amber-400/30" />
+          </div>
+
+          <CardTitle className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-amber-400 via-orange-500 to-yellow-500 text-transparent bg-clip-text mb-1">
+            Waiting for Opponent
+          </CardTitle>
+          <CardDescription className="text-gray-400 max-w-xs">
+            Share the Game ID below or wait for someone to join.
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="px-6 sm:px-8 pb-6">
+          {/* Game ID display with adjusted styling */}
+          <TooltipProvider delayDuration={100}>
+            <div className="flex items-center justify-between bg-black/50 border border-white/10 rounded-lg px-4 py-3 mb-5 backdrop-blur-sm shadow-inner">
+              <span
+                className="font-mono text-lg text-amber-400 truncate select-all"
+                aria-label="Game ID"
+              >
+                {gameId || "Generating ID..."}
+              </span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleCopy}
+                    aria-label="Copy Game ID"
+                    className="ml-2 text-amber-400 hover:text-white hover:bg-amber-500/10 focus:ring-amber-500 focus:outline-none"
+                    disabled={!gameId}
+                  >
+                    <Copy className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent
+                  side="bottom"
+                  className="bg-gray-900/90 text-gray-200 border-gray-700"
+                >
+                  <p>Click to copy Game ID</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </TooltipProvider>
+
+          {/* Copied feedback with fade animation */}
+          {copied && (
+            <div className="absolute top-4 right-4 bg-green-600/90 text-white px-3 py-1 rounded-lg shadow-lg text-sm animate-fade-in-out z-20">
+              Copied!
+            </div>
+          )}
+
+          {/* Chess tip/fact with adjusted styling */}
+          <div className="text-center">
+            <span className="inline-block bg-black/30 text-amber-300 px-4 py-2 rounded-lg text-sm shadow-sm border border-amber-900/20">
+              <span className="font-semibold mr-1 text-amber-400">Tip:</span>{" "}
+              {tip}
             </span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-center bg-gradient-to-r from-amber-400 via-orange-500 to-yellow-500 text-transparent bg-clip-text mb-2">
-            Waiting for opponent to join...
-          </h1>
-          <p className="text-gray-400 text-center max-w-xs">
-            Share your Game ID with your friend or wait for a random opponent to
-            join.
-          </p>
-        </div>
-        {/* Game ID display with glassmorphism and tooltip */}
-        <div className="flex items-center justify-between bg-black/60 border border-gray-700 rounded-xl px-4 py-3 mb-4 backdrop-blur-md shadow-lg relative group">
-          <span
-            className="font-mono text-lg text-amber-400 truncate select-all cursor-pointer"
-            title={gameId}
-            tabIndex={0}
-            aria-label="Game ID"
-            onClick={handleCopy}
-          >
-            {gameId || "No Game ID"}
-          </span>
+        </CardContent>
+
+        <CardFooter className="px-6 sm:px-8 pb-8 sm:pb-10">
+          {/* Leave Lobby button */}
           <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleCopy}
-            aria-label="Copy Game ID"
-            className="ml-2 text-amber-400 hover:text-white hover:bg-amber-500/10 focus:ring-amber-500 focus:outline-none"
-            disabled={!gameId}
-          >
-            <Copy className="h-5 w-5" />
-          </Button>
-          {/* Tooltip on hover/focus */}
-          <span className="absolute -bottom-7 left-1/2 -translate-x-1/2 bg-gray-900/90 text-gray-200 text-xs px-3 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-200 pointer-events-none">
-            Click or tap to copy
-          </span>
-        </div>
-        {/* Copied feedback with fade animation */}
-        {copied && (
-          <div className="absolute top-4 right-4 bg-amber-600/90 text-white px-3 py-1 rounded-lg shadow-lg text-sm animate-fade-in-out z-20">
-            Copied!
-          </div>
-        )}
-        {/* Chess tip/fact for engagement */}
-        <div className="mb-6 mt-2 text-center">
-          <span className="inline-block bg-black/40 text-amber-300 px-4 py-2 rounded-lg text-sm shadow-sm border border-amber-900/20">
-            <span className="font-semibold mr-1">Tip:</span> {tip}
-          </span>
-        </div>
-        {/* Leave Lobby button */}
-        <Button
             variant="outline"
-            className={`
-                w-full py-4 rounded-xl
-                border border-gray-700
-                bg-black/70
-                text-gray-100 font-semibold
-                shadow
-                flex items-center justify-center gap-2
-                transition-colors duration-200
-                hover:bg-gray-800 hover:text-amber-400 hover:border-amber-400
-                focus:ring-2 focus:ring-amber-400 focus:outline-none
-                backdrop-blur-md
-            `}
+            className="w-full py-3 rounded-xl border border-gray-700 hover:border-amber-400 bg-black/70 hover:bg-gray-800/70 text-gray-300 hover:text-amber-400 font-semibold shadow flex items-center justify-center gap-2 transition-all duration-200 hover:shadow-amber-500/20 focus:ring-2 focus:ring-offset-2 focus:ring-offset-black focus:ring-amber-400 focus:outline-none backdrop-blur-md"
             onClick={handleLeave}
             aria-label="Leave Lobby"
-        >
-            <LogOut className="h-5 w-5 mr-2" /> Leave Lobby
-        </Button>
-      </div>
-      {/* Custom animation for ping effect */}
+          >
+            <LogOut className="h-5 w-5" /> Leave Lobby
+          </Button>
+        </CardFooter>
+      </Card>
+
+      {/* Custom animation definitions (Consider moving to tailwind.config.js) */}
       <style>{`
         @keyframes ping-slow {
           0% { transform: scale(1); opacity: 0.3; }

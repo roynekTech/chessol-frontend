@@ -5,12 +5,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
 // Type definitions
-export interface IApiResponse<T> {
-  status: string;
-  code: string;
-  message?: string;
-  data?: T;
-}
+// export interface IApiResponse<T> {
+//   status: string;
+//   code: string;
+//   message?: string;
+//   data?: T;
+// }
 
 // Generic GET hook
 export function useGetData<T>(
@@ -18,15 +18,15 @@ export function useGetData<T>(
   queryKey: string[],
   options = {}
 ) {
-  return useQuery<IApiResponse<T>>({
+  return useQuery<T>({
     queryKey,
     queryFn: async () => {
       try {
         const url = new URL(endpoint, API_BASE_URL).toString();
         const response = await fetch(url);
-        const data = (await response.json()) as IApiResponse<T>;
-        if (!response.ok || data.status !== "success") {
-          throw new Error(data?.message || "Error fetching data");
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error("Error fetching data");
         }
         return data;
       } catch (error) {
@@ -42,8 +42,9 @@ export function useGetData<T>(
 // Generic POST hook
 export function usePostData<T, D>(endpoint: string, queryKey: string[]) {
   const queryClient = useQueryClient();
+  console.log({ API_BASE_URL, endpoint });
 
-  return useMutation<IApiResponse<T>, Error, D>({
+  return useMutation<T, Error, D>({
     mutationFn: async (data: D) => {
       try {
         const url = new URL(endpoint, API_BASE_URL).toString();
@@ -54,9 +55,9 @@ export function usePostData<T, D>(endpoint: string, queryKey: string[]) {
           },
           body: JSON.stringify(data),
         });
-        const responseData = (await response.json()) as IApiResponse<T>;
+        const responseData = await response.json();
 
-        if (!response.ok || responseData.status !== "success") {
+        if (!response.ok) {
           throw new Error(responseData?.message || "Error sending message");
         }
 
@@ -78,7 +79,7 @@ export function usePostData<T, D>(endpoint: string, queryKey: string[]) {
 export function usePutData<T, D>(endpoint: string, queryKey: string[]) {
   const queryClient = useQueryClient();
 
-  return useMutation<IApiResponse<T>, Error, D>({
+  return useMutation<T, Error, D>({
     mutationFn: async (data: D) => {
       try {
         const url = new URL(endpoint, API_BASE_URL).toString();
@@ -89,9 +90,9 @@ export function usePutData<T, D>(endpoint: string, queryKey: string[]) {
           },
           body: JSON.stringify(data),
         });
-        const responseData = (await response.json()) as IApiResponse<T>;
+        const responseData = await response.json();
 
-        if (!response.ok || responseData.status !== "success") {
+        if (!response.ok) {
           throw new Error(responseData?.message || "Error updating data");
         }
 
@@ -112,7 +113,7 @@ export function usePutData<T, D>(endpoint: string, queryKey: string[]) {
 export function usePatchData<T, D>(endpoint: string, queryKey: string[]) {
   const queryClient = useQueryClient();
 
-  return useMutation<IApiResponse<T>, Error, D>({
+  return useMutation<T, Error, D>({
     mutationFn: async (data: D) => {
       try {
         const url = new URL(endpoint, API_BASE_URL).toString();
@@ -123,9 +124,9 @@ export function usePatchData<T, D>(endpoint: string, queryKey: string[]) {
           },
           body: JSON.stringify(data),
         });
-        const responseData = (await response.json()) as IApiResponse<T>;
+        const responseData = await response.json();
 
-        if (!response.ok || responseData.status !== "success") {
+        if (!response.ok) {
           throw new Error(responseData?.message || "Error updating data");
         }
 
@@ -146,7 +147,7 @@ export function usePatchData<T, D>(endpoint: string, queryKey: string[]) {
 export function useDeleteData<T>(endpoint: string, queryKey: string[]) {
   const queryClient = useQueryClient();
 
-  return useMutation<IApiResponse<T>, Error, { id: string }>({
+  return useMutation<T, Error, { id: string }>({
     mutationFn: async (params) => {
       try {
         const url = new URL(endpoint, API_BASE_URL);
@@ -159,8 +160,8 @@ export function useDeleteData<T>(endpoint: string, queryKey: string[]) {
           method: "DELETE",
         });
 
-        const responseData = (await response.json()) as IApiResponse<T>;
-        if (!response.ok || responseData.status !== "success") {
+        const responseData = await response.json();
+        if (!response.ok) {
           throw new Error(responseData?.message || "Error deleting data");
         }
 

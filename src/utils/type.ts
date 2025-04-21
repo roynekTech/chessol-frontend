@@ -247,3 +247,15 @@ export interface IGameDetailsLocalStorage {
   fen: string;
   isBetting: boolean;
 }
+
+export interface IGetBestMovePayload {
+  fen: string;
+  game_id: string;
+  level: number;
+}
+
+export interface IGetBestMoveResponse {
+  game_id: string;
+  fen: string;
+  best_move: string;
+}
