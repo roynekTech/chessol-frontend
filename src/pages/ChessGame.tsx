@@ -1,3 +1,7 @@
+// ChessGame.tsx
+// Main chess game component supporting both Human vs Human and Human vs Computer modes
+// This file will be split into mode-specific pages in the future, but currently contains all logic and UI
+
 import { useState, useEffect, useCallback } from "react";
 import { Chess, Square } from "chess.js";
 import { motion, AnimatePresence } from "framer-motion";
@@ -9,8 +13,9 @@ import { estimateElo } from "../utils/chessUtils";
 import { usePostData } from "../utils/use-query-hooks";
 import { IGetBestMovePayload, IGetBestMoveResponse } from "../utils/type";
 
-// Simplified chess board component to avoid TypeScript issues with chess.js
+// --- Main ChessGame Component ---
 export function ChessGame() {
+  // --- Routing and URL Params ---
   const navigate = useNavigate();
   const location = useLocation();
   const queryParams = React.useMemo(
@@ -18,6 +23,7 @@ export function ChessGame() {
     [location.search]
   );
 
+  // --- Game Mode and Settings ---
   // Get game settings from URL parameters
   const initialMode = queryParams.get("mode") || "computer";
   const computerColor = queryParams.get("computerColor") || "b";
@@ -26,7 +32,6 @@ export function ChessGame() {
 
   // Add spectate mode state
   const [isSpectating, setIsSpectating] = useState(!!spectateId);
-
   const [gameMode, setGameMode] = useState(initialMode);
   const [game] = useState(new Chess());
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
@@ -39,7 +44,7 @@ export function ChessGame() {
     b: [] as { type: string; color: string }[],
   });
 
-  // extract the game mode from the url
+  // --- Effect: Extract game mode from URL ---
   useEffect(() => {
     const mode = queryParams.get("mode");
     if (mode) {
@@ -47,24 +52,25 @@ export function ChessGame() {
     }
   }, [queryParams]);
 
-  // Game timer
+  // --- Timer State ---
   const [timers, setTimers] = useState({
     w: 600, // 10 minutes in seconds
     b: 600,
   });
   const [activeTimer, setActiveTimer] = useState<string>("w"); // White starts
 
-  // Add FEN state back
+  // --- FEN, Difficulty, and Computer Move State ---
   const [fen, setFen] = useState(game.fen());
-  const [difficulty, setDifficulty] = useState<number>(initialDifficulty);
+  const [difficulty, setDifficulty] = useState<number>(initialDifficulty); // (Unused, for future refactor)
   const [isThinking, setIsThinking] = useState<boolean>(false);
 
-  // Move trail animation
+  // --- Move Trail Animation State ---
   const [moveTrail, setMoveTrail] = useState<{
     from: string;
     to: string;
   } | null>(null);
 
+  // --- Computer Move Data (Unused, for future refactor) ---
   const [moveData, setLastMove] = useState<{
     from: string;
     to: string;
@@ -72,7 +78,7 @@ export function ChessGame() {
     promotion?: string;
   } | null>(null);
 
-  // Hook to fetch the best move from the server
+  // --- API Hook for Best Move (Unused, for future refactor) ---
   const {
     mutate: getBestMove,
     isSuccess: bestMovedRetrieved,
@@ -81,7 +87,7 @@ export function ChessGame() {
     "move",
   ]);
 
-  // Fetch the best move from the server
+  // --- Fetch the best move from the server (stub) ---
   const handleGetBestMove = () => {
     console.log("getting best move");
     // getBestMove(
@@ -98,19 +104,15 @@ export function ChessGame() {
     // );
   };
 
-  // Fetch game data if spectating
+  // --- Effect: Fetch game data if spectating (stub) ---
   useEffect(() => {
     if (spectateId) {
       // In a real app, this would fetch the game data from an API
-      console.log(`Spectating game with ID: ${spectateId}`);
       setIsSpectating(true);
-
-      // Mock implementation - in reality you would fetch actual game data
-      // and set up a websocket or polling to get move updates
     }
   }, [spectateId]);
 
-  // Format time from seconds to MM:SS
+  // --- Utility: Format time from seconds to MM:SS ---
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -119,10 +121,9 @@ export function ChessGame() {
       .padStart(2, "0")}`;
   };
 
-  // Update the timer every second
+  // --- Effect: Update the timer every second ---
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
-
     if (activeTimer && !game.isGameOver()) {
       interval = setInterval(() => {
         setTimers((prev) => ({
@@ -132,7 +133,6 @@ export function ChessGame() {
             prev[activeTimer as keyof typeof prev] - 1
           ),
         }));
-
         // Check for timeout
         if (timers[activeTimer as keyof typeof timers] <= 0) {
           setGameStatus(
@@ -143,18 +143,15 @@ export function ChessGame() {
         }
       }, 1000);
     }
-
     return () => {
       if (interval) clearInterval(interval);
     };
   }, [activeTimer, timers, game]);
 
-  // Update game status after each move
+  // --- Effect: Update game status after each move ---
   const updateGameStatus = useCallback(() => {
-    // Update FEN
     setFen(game.fen());
     setCurrentPlayer(game.turn() as "w" | "b");
-
     if (game.isCheckmate()) {
       setGameStatus(
         `Checkmate! ${game.turn() === "w" ? "Black" : "White"} wins`
@@ -171,73 +168,49 @@ export function ChessGame() {
     } else {
       setGameStatus(`${game.turn() === "w" ? "White" : "Black"} to move`);
     }
-
-    // Update move history
     setMoveHistory(game.history());
   }, [game]);
 
-  // Handle move trail animation
+  // --- Effect: Handle move trail animation ---
   useEffect(() => {
     if (moveTrail) {
       const timer = setTimeout(() => {
         setMoveTrail(null);
       }, 2000); // Keep trail for 2 seconds
-
       return () => clearTimeout(timer);
     }
   }, [moveTrail]);
 
-  // Trigger computer's turn by setting isThinking flag (enables data fetch)
+  // --- Effect: Computer's turn logic (stub for future refactor) ---
   useEffect(() => {
-    console.log("Computer turn check - gameMode:", {
-      gameMode,
-      computerColor,
-      currentPlayer,
-      isThinking,
-      isGameOver: game.isGameOver(),
-    });
-
     if (
       gameMode === "computer" &&
       computerColor === currentPlayer &&
       !isThinking &&
       !game.isGameOver()
     ) {
-      console.log(
-        "Computer's turn, setting isThinking to true to trigger fetch..."
-      );
       setIsThinking(true);
-      // The useGetData hook will now fetch because 'enabled' is true and fen/difficulty might change.
       handleGetBestMove();
     }
-    // Add game to dependencies to re-evaluate if game over state changes
   }, [currentPlayer, computerColor, gameMode, isThinking, game]);
 
-  // Effect to process the computer's move once moveData is available
+  // --- Effect: Process computer move (stub for future refactor) ---
   useEffect(() => {
-    // Only proceed if the computer is thinking and we have move data
     if (isThinking && moveData) {
-      console.log("Received moveData while thinking:", moveData);
       try {
         const move = game.move({
           from: moveData.from,
           to: moveData.to,
-          // Ensure promotion defaults to 'q' if not provided, matching human move logic
           promotion: moveData.promotion || "q",
         });
-
         if (move) {
-          console.log("Computer move successful:", move);
           setMoveTrail({ from: move.from, to: move.to });
-
           if (move.captured) {
             const capturedPiece = {
               type: move.captured,
-              // The color of the captured piece is the *opposite* of the mover's color
               color: move.color === "w" ? "b" : "w",
             };
             setCapturedPieces((prev) => {
-              // Ensure we update the correct side's captured pieces array
               const opponentColor = move.color === "w" ? "b" : "w";
               return {
                 ...prev,
@@ -245,50 +218,27 @@ export function ChessGame() {
               };
             });
           }
-
-          // *** CORE FIX: Update status *after* the move is made ***
           updateGameStatus();
-          // Switch timer *after* updating status (which updates game.turn())
           setActiveTimer(game.turn() as string);
-        } else {
-          // This indicates the move received from the API was illegal for the current position
-          console.error(
-            "Computer move failed: Invalid move received from API or illegal move",
-            moveData,
-            `FEN: ${game.fen()}`
-          );
-          // Consider how to handle this - maybe skip turn, show error?
-          // For now, just stop thinking to prevent infinite loops if API keeps sending bad moves.
         }
       } catch (error) {
-        // This catches errors from game.move() itself (e.g., if moveData is malformed)
-        console.error(
-          "Error executing computer move:",
-          error,
-          moveData,
-          `FEN: ${game.fen()}`
-        );
+        // Error handling for computer move
       } finally {
-        // Crucial: Reset thinking state regardless of success or failure
-        console.log(
-          "Computer finished processing move, setting isThinking to false."
-        );
         setIsThinking(false);
       }
     }
-    // This effect should run when moveData potentially updates, but only act if isThinking is true.
-    // Including game and updateGameStatus ensures the latest game state and functions are used.
   }, [moveData, isThinking, game, updateGameStatus]);
 
-  // Initialize the game state
+  // --- Effect: Initialize the game state ---
   useEffect(() => {
     updateGameStatus();
   }, [updateGameStatus]);
 
-  // Modify handleSquareClick to prevent moves when spectating
+  // --- Board Interaction Logic ---
+  // Handles user clicks on the board squares
   const handleSquareClick = (square: string) => {
     try {
-      // Return early if game is over, if we're spectating, or if it's the computer's turn
+      // Prevent moves if game is over, spectating, or computer's turn
       if (
         game.isGameOver() ||
         isSpectating ||
@@ -296,7 +246,6 @@ export function ChessGame() {
       ) {
         return;
       }
-
       if (selectedSquare) {
         // Try to make a move
         try {
@@ -305,14 +254,11 @@ export function ChessGame() {
             to: square,
             promotion: "q", // Auto-promote to queen for simplicity
           });
-
           if (move) {
-            // Add move trail animation
             setMoveTrail({
               from: selectedSquare,
               to: square,
             });
-
             // Check for captures
             if (move.captured) {
               const capturedPiece = {
@@ -327,15 +273,9 @@ export function ChessGame() {
                 ],
               }));
             }
-
-            // Clear selection
             setSelectedSquare(null);
             setValidMoves([]);
-
-            // Switch active timer
             setActiveTimer(game.turn() as string);
-
-            // Update game status
             updateGameStatus();
           }
         } catch {
@@ -345,12 +285,10 @@ export function ChessGame() {
             if (piece && piece.color === game.turn()) {
               selectSquare(square);
             } else {
-              // Invalid target, clear selection
               setSelectedSquare(null);
               setValidMoves([]);
             }
           } catch {
-            // If anything fails, just clear the selection
             setSelectedSquare(null);
             setValidMoves([]);
           }
@@ -363,19 +301,18 @@ export function ChessGame() {
             selectSquare(square);
           }
         } catch {
-          // Just ignore errors when trying to select a square
+          // Ignore errors when trying to select a square
         }
       }
     } catch {
-      console.log("Error in handleSquareClick");
+      // General error in handleSquareClick
     }
   };
 
-  // Select a square and show valid moves
+  // --- Select a square and show valid moves ---
   const selectSquare = (square: string) => {
     setSelectedSquare(square);
     try {
-      // Find valid moves for the selected piece
       const legalMoves =
         game.moves({ square: square as Square, verbose: true }) || [];
       const validDestinations = legalMoves.map((move) => move.to || "");
@@ -385,10 +322,9 @@ export function ChessGame() {
     }
   };
 
-  // Piece images mapping
+  // --- Piece Images Mapping ---
   const getPieceImage = (piece: { type: string; color: string } | null) => {
     if (!piece) return "";
-
     const pieceImages: Record<string, string> = {
       wp: "https://www.chess.com/chess-themes/pieces/neo/150/wp.png",
       wn: "https://www.chess.com/chess-themes/pieces/neo/150/wn.png",
@@ -403,19 +339,15 @@ export function ChessGame() {
       bq: "https://www.chess.com/chess-themes/pieces/neo/150/bq.png",
       bk: "https://www.chess.com/chess-themes/pieces/neo/150/bk.png",
     };
-
     return pieceImages[`${piece.color}${piece.type}`];
   };
 
-  // Create board position from FEN
+  // --- Board Section ---
+  // Renders the chess board and pieces
   const renderBoard = () => {
-    // Generate a static 8x8 board with coordinates
     const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
     const ranks = ["8", "7", "6", "5", "4", "3", "2", "1"];
-
-    // Get the current position from chess.js
     const position = game.board();
-
     return (
       <div className="grid grid-cols-8 gap-0 border-4 border-amber-900 rounded-lg overflow-hidden shadow-xl">
         {ranks
@@ -424,17 +356,10 @@ export function ChessGame() {
               const squareId = file + rank;
               const isLight = (fileIndex + rankIndex) % 2 === 1;
               const squareColor = isLight ? "bg-amber-200" : "bg-amber-800";
-
-              // Find piece at this position
               const piece = position[rankIndex][fileIndex];
-
-              // Determine if square needs highlighting
               let highlightClass = "";
-
-              // Track the move trail
               const isFromSquare = moveTrail && moveTrail.from === squareId;
               const isToSquare = moveTrail && moveTrail.to === squareId;
-
               if (selectedSquare === squareId) {
                 highlightClass = "ring-4 ring-yellow-400 z-10";
               } else if (validMoves.includes(squareId)) {
@@ -446,8 +371,6 @@ export function ChessGame() {
               } else if (isToSquare) {
                 highlightClass = "bg-green-500/50";
               }
-
-              // Check if this square was part of the last move
               const lastMove =
                 moveHistory.length > 0
                   ? game.history({ verbose: true }).pop()
@@ -456,18 +379,17 @@ export function ChessGame() {
                 lastMove &&
                 (lastMove.from === squareId || lastMove.to === squareId) &&
                 !isFromSquare &&
-                !isToSquare // Don't override move trail highlights
+                !isToSquare
               ) {
                 highlightClass += " bg-yellow-400/30";
               }
-
               return (
                 <div
                   key={squareId}
                   className={`${squareColor} ${highlightClass} relative aspect-square`}
                   onClick={() => handleSquareClick(squareId)}
                 >
-                  {/* Show coordinates */}
+                  {/* Coordinates */}
                   {fileIndex === 0 && (
                     <span className="absolute left-1 top-0 text-xs font-bold opacity-60">
                       {rank}
@@ -478,8 +400,7 @@ export function ChessGame() {
                       {file}
                     </span>
                   )}
-
-                  {/* Render piece */}
+                  {/* Piece */}
                   {piece && (
                     <motion.div
                       key={`${piece.color}${piece.type}-${squareId}`}
@@ -505,7 +426,8 @@ export function ChessGame() {
     );
   };
 
-  // Create a component for the move history display that alternates white and black moves
+  // --- Move History Section ---
+  // Displays move history in pairs (white, black)
   const MoveHistoryDisplay = () => {
     if (moveHistory.length === 0) {
       return (
@@ -514,8 +436,6 @@ export function ChessGame() {
         </div>
       );
     }
-
-    // Group moves into pairs (white, black)
     const pairs = [];
     for (let i = 0; i < moveHistory.length; i += 2) {
       pairs.push({
@@ -524,7 +444,6 @@ export function ChessGame() {
         black: i + 1 < moveHistory.length ? moveHistory[i + 1] : null,
       });
     }
-
     return (
       <div className="grid grid-cols-[auto_1fr_1fr] gap-1">
         {pairs.map((pair, idx) => (
@@ -541,7 +460,7 @@ export function ChessGame() {
                 {pair.black}
               </div>
             ) : (
-              <div></div> // Empty cell if no black move
+              <div></div>
             )}
           </React.Fragment>
         ))}
@@ -549,7 +468,8 @@ export function ChessGame() {
     );
   };
 
-  // Action buttons
+  // --- Game Controls ---
+  // Handles game restart
   const restartGame = () => {
     game.reset();
     setSelectedSquare(null);
@@ -561,8 +481,6 @@ export function ChessGame() {
     setFen(game.fen());
     setMoveTrail(null);
     updateGameStatus();
-
-    // Start computer move if computer plays as white
     if (gameMode === "computer" && computerColor === "w") {
       setTimeout(() => {
         setIsThinking(true);
@@ -570,9 +488,10 @@ export function ChessGame() {
     }
   };
 
+  // --- Main Render ---
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-950 to-black text-white flex flex-col items-center justify-center p-4">
-      {/* Game header - more mobile friendly */}
+      {/* --- Header Section --- */}
       <div className="w-full max-w-6xl mx-auto mb-4 flex flex-col sm:flex-row justify-between items-center">
         <Button
           variant="ghost"
@@ -581,7 +500,6 @@ export function ChessGame() {
         >
           <ArrowLeft className="mr-2 h-4 w-4" /> Back
         </Button>
-
         <div className="bg-black/50 p-3 rounded-lg shadow-lg mb-4 sm:mb-0">
           <div className="grid grid-cols-1 gap-2">
             {isSpectating && (
@@ -595,7 +513,6 @@ export function ChessGame() {
                 {gameMode === "human" ? "Human vs Human" : "Play vs Computer"}
               </span>
             </div>
-
             {gameMode === "computer" && (
               <>
                 <div className="text-sm">
@@ -604,7 +521,6 @@ export function ChessGame() {
                     {computerColor === "b" ? "White" : "Black"}
                   </span>
                 </div>
-
                 <div className="text-sm">
                   <span className="text-gray-400">Computer ELO:</span>{" "}
                   <span className="font-semibold">
@@ -617,12 +533,12 @@ export function ChessGame() {
         </div>
       </div>
 
-      {/* Main content container */}
+      {/* --- Main Content Section --- */}
       <div className="container max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Center - Chess board - prioritized on mobile */}
+        {/* --- Center: Board Section --- */}
         <div className="lg:col-span-1 lg:order-2 mb-6 lg:mb-0">
           <div className="aspect-square mx-auto relative max-w-xl">
-            {/* Game status banner */}
+            {/* --- Game Status Banner --- */}
             <AnimatePresence>
               {gameStatus.includes("wins") && (
                 <motion.div
@@ -643,8 +559,7 @@ export function ChessGame() {
                 </motion.div>
               )}
             </AnimatePresence>
-
-            {/* Status bar - improved position */}
+            {/* --- Status Bar --- */}
             <div className="absolute -top-10 left-0 right-0 text-center">
               <div
                 className={`px-4 py-1 rounded-full inline-block ${
@@ -656,8 +571,7 @@ export function ChessGame() {
                 {gameStatus}
               </div>
             </div>
-
-            {/* Thinking indicator */}
+            {/* --- Computer Thinking Indicator --- */}
             {isThinking && (
               <div className="absolute -top-20 left-0 right-0 text-center z-20">
                 <div className="px-4 py-2 rounded-full inline-flex items-center gap-2 bg-blue-600/80">
@@ -666,11 +580,9 @@ export function ChessGame() {
                 </div>
               </div>
             )}
-
-            {/* Chess board rendered dynamically */}
+            {/* --- Chess Board --- */}
             {renderBoard()}
-
-            {/* Mobile-friendly restart controls */}
+            {/* --- Mobile Restart Controls --- */}
             <div className="mt-4 flex justify-center lg:hidden">
               <Button
                 variant="default"
@@ -680,16 +592,16 @@ export function ChessGame() {
                 <RotateCw className="w-4 h-4 mr-2" /> Restart
               </Button>
             </div>
-
-            {/* FEN Display - hidden on mobile */}
+            {/* --- FEN Display (hidden on mobile) --- */}
             <div className="mt-4 hidden sm:block text-xs text-gray-400 overflow-x-auto whitespace-nowrap">
               <div className="font-mono bg-black/40 p-2 rounded">{fen}</div>
             </div>
           </div>
         </div>
 
-        {/* Left panel - Black player - improved mobile layout */}
+        {/* --- Left Panel: Black Player --- */}
         <div className="bg-black/30 rounded-lg p-4 lg:order-1 flex flex-col">
+          {/* --- Player Panel: Black --- */}
           <div className="flex items-center mb-4">
             <div className="bg-black rounded-full w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center text-white mr-3 sm:mr-4">
               <Crown
@@ -712,8 +624,7 @@ export function ChessGame() {
               </div>
             </div>
           </div>
-
-          {/* Captured pieces by Black - more compact on mobile */}
+          {/* --- Captured Pieces: Black --- */}
           <div className="mb-3 sm:mb-4">
             <h4 className="text-xs sm:text-sm text-gray-400 mb-1 sm:mb-2">
               Captured
@@ -735,8 +646,7 @@ export function ChessGame() {
               ))}
             </div>
           </div>
-
-          {/* Move history for Black - responsive height */}
+          {/* --- Move History: Black --- */}
           <div className="flex-1 overflow-hidden">
             <h4 className="text-xs sm:text-sm text-gray-400 mb-1 sm:mb-2">
               Moves
@@ -745,8 +655,7 @@ export function ChessGame() {
               <MoveHistoryDisplay />
             </div>
           </div>
-
-          {/* Game controls - desktop only */}
+          {/* --- Game Controls (Desktop) --- */}
           <div className="mt-4 gap-2 hidden lg:flex">
             <Button
               variant="default"
@@ -758,8 +667,9 @@ export function ChessGame() {
           </div>
         </div>
 
-        {/* Right panel - White player - improved mobile layout */}
+        {/* --- Right Panel: White Player --- */}
         <div className="bg-black/30 rounded-lg p-4 lg:order-3 flex flex-col">
+          {/* --- Player Panel: White --- */}
           <div className="flex items-center mb-4">
             <div className="bg-white rounded-full w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center text-black mr-3 sm:mr-4">
               <Crown
@@ -782,8 +692,7 @@ export function ChessGame() {
               </div>
             </div>
           </div>
-
-          {/* Captured pieces by White - more compact on mobile */}
+          {/* --- Captured Pieces: White --- */}
           <div className="mb-3 sm:mb-4">
             <h4 className="text-xs sm:text-sm text-gray-400 mb-1 sm:mb-2">
               Captured
@@ -805,8 +714,7 @@ export function ChessGame() {
               ))}
             </div>
           </div>
-
-          {/* Move history for White - responsive height */}
+          {/* --- Move History: White --- */}
           <div className="flex-1 overflow-hidden">
             <h4 className="text-xs sm:text-sm text-gray-400 mb-1 sm:mb-2">
               Moves
@@ -815,8 +723,7 @@ export function ChessGame() {
               <MoveHistoryDisplay />
             </div>
           </div>
-
-          {/* Game controls - desktop only */}
+          {/* --- Game Controls (Desktop) --- */}
           <div className="mt-4 gap-2 hidden lg:flex">
             <Button
               variant="default"
