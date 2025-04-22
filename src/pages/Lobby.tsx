@@ -8,7 +8,7 @@ import {
   IWSPairedMessage,
 } from "../utils/type";
 import { useNavigate } from "react-router-dom";
-import { useWebSocket } from "../utils/useWebSocket";
+import { useWebSocketContext } from "../context/useWebSocketContext";
 import { WebSocketMessageTypeEnum } from "../utils/type";
 import {
   Card,
@@ -45,7 +45,7 @@ export function Lobby() {
   const [copied, setCopied] = useState(false);
   const [tip, setTip] = useState<string>("");
   const navigate = useNavigate();
-  const { lastMessage } = useWebSocket();
+  const { lastMessage } = useWebSocketContext();
 
   useEffect(() => {
     // Fetch game details from localStorage

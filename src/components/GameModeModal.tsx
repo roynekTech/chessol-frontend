@@ -14,7 +14,6 @@ import { User, Bot, Swords, Trophy, Zap, Crown } from "lucide-react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
-import { useWebSocket } from "../utils/useWebSocket";
 import {
   IGameDetailsLocalStorage,
   IWSCreatedMessage,
@@ -23,6 +22,7 @@ import {
 } from "../utils/type";
 import { localStorageHelper } from "../utils/localStorageHelper";
 import { toast } from "sonner";
+import { useWebSocketContext } from "../context/useWebSocketContext";
 
 interface GameModeModalProps {
   open: boolean;
@@ -45,7 +45,7 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
   const [userClickedCreate, setUserClickedCreate] = useState<boolean>(false);
   const [gameCreated, setGameCreated] = useState<boolean>(false);
 
-  const { sendMessage, lastMessage } = useWebSocket();
+  const { sendMessage, lastMessage } = useWebSocketContext();
 
   const handleStartGame = () => {
     // Validation: if betting, require amount and txHash

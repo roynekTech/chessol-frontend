@@ -13,7 +13,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LogIn, Info, DollarSign, Hash } from "lucide-react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { useWebSocket } from "../utils/useWebSocket";
 import {
   IGameDetailsLocalStorage,
   LocalStorageKeysEnum,
@@ -22,6 +21,7 @@ import {
 import { localStorageHelper } from "../utils/localStorageHelper";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
+import { useWebSocketContext } from "../context/useWebSocketContext";
 
 interface IWSErrorMessage {
   type: WebSocketMessageTypeEnum.Error;
@@ -64,7 +64,7 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
   const [isJoining, setIsJoining] = useState<boolean>(false);
   const { publicKey } = useWallet();
   const walletAddress = publicKey?.toBase58() || "";
-  const { sendMessage, lastMessage } = useWebSocket();
+  const { sendMessage, lastMessage } = useWebSocketContext();
 
   useEffect(() => {
     if (!open) {

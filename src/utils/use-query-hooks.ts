@@ -42,7 +42,6 @@ export function useGetData<T>(
 // Generic POST hook
 export function usePostData<T, D>(endpoint: string, queryKey: string[]) {
   const queryClient = useQueryClient();
-  console.log({ API_BASE_URL, endpoint });
 
   return useMutation<T, Error, D>({
     mutationFn: async (data: D) => {

@@ -16,6 +16,7 @@ import { clusterApiUrl } from "@solana/web3.js";
 import "@solana/wallet-adapter-react-ui/styles.css";
 import { useMemo } from "react";
 import { Lobby } from "./pages/Lobby";
+import { WebSocketProvider } from "./context/WebSocketContext";
 
 const queryClient = new QueryClient();
 
@@ -36,14 +37,16 @@ function App() {
       <WalletProvider wallets={wallets} autoConnect>
         <WalletModalProvider>
           <QueryClientProvider client={queryClient}>
-            <Router>
-              <Routes>
-                <Route path="/" element={<LandingPage />} />
-                <Route path="/games" element={<OngoingGames />} />
-                <Route path="/game/:id" element={<ChessGame />} />
-                <Route path="/lobby" element={<Lobby />} />
-              </Routes>
-            </Router>
+            <WebSocketProvider>
+              <Router>
+                <Routes>
+                  <Route path="/" element={<LandingPage />} />
+                  <Route path="/games" element={<OngoingGames />} />
+                  <Route path="/game/:id" element={<ChessGame />} />
+                  <Route path="/lobby" element={<Lobby />} />
+                </Routes>
+              </Router>
+            </WebSocketProvider>
           </QueryClientProvider>
         </WalletModalProvider>
       </WalletProvider>

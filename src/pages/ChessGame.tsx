@@ -83,18 +83,19 @@ export function ChessGame() {
 
   // Fetch the best move from the server
   const handleGetBestMove = () => {
-    getBestMove(
-      {
-        fen,
-        game_id: "randomGameId",
-        level: difficulty,
-      },
-      {
-        onSuccess: (data) => {
-          console.log("Best move retrieved successfully", data);
-        },
-      }
-    );
+    console.log("getting best move");
+    // getBestMove(
+    //   {
+    //     fen,
+    //     game_id: "randomGameId",
+    //     level: difficulty,
+    //   },
+    //   {
+    //     onSuccess: (data) => {
+    //       console.log("Best move retrieved successfully", data);
+    //     },
+    //   }
+    // );
   };
 
   // Fetch game data if spectating
