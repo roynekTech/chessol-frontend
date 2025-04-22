@@ -1,0 +1,17 @@
+---
+description: when user want's to do anything with api or websocket or typescript types generally 
+globs: 
+alwaysApply: false
+---
+# TypeScript Types and Enums for Chess WebSocket
+
+All enums, interfaces, and type definitions for the chess WebSocket protocol are centralized in [type.ts](mdc:src/utils/type.ts).
+
+**Key Points:**
+- Enums for sides (`SideEnum`), game states (`GameStateEnum`), and WebSocket message types (`WebSocketMessageTypeEnum`).
+- Interfaces for all WebSocket messages, including create/join/move/chat/resign/pairing, etc.
+- Union types for all possible incoming and outgoing WebSocket messages.
+- Local storage keys and types for persisting game details.
+- All message types and payloads should match the protocol in [api.md](mdc:docs/api.md).
+
+**Reference:** See [type.ts](mdc:src/utils/type.ts) for the authoritative source of all chess WebSocket types and enums.

@@ -223,6 +223,7 @@ export function ChessGame() {
         }
       } catch (error) {
         // Error handling for computer move
+        console.error("Error processing computer move:", error);
       } finally {
         setIsThinking(false);
       }
@@ -492,7 +493,7 @@ export function ChessGame() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-950 to-black text-white flex flex-col items-center justify-center p-4">
       {/* --- Header Section --- */}
-      <div className="w-full max-w-6xl mx-auto mb-4 flex flex-col sm:flex-row justify-between items-center">
+      <div className="w-full max-w-6xl mx-auto mb-4 flex flex-row justify-between items-center">
         <Button
           variant="ghost"
           onClick={() => navigate(isSpectating ? "/games" : "/")}
@@ -500,37 +501,66 @@ export function ChessGame() {
         >
           <ArrowLeft className="mr-2 h-4 w-4" /> Back
         </Button>
-        <div className="bg-black/50 p-3 rounded-lg shadow-lg mb-4 sm:mb-0">
-          <div className="grid grid-cols-1 gap-2">
+        {/* --- Game Info Box (Simplified) --- */}
+        <div className="bg-black/50 p-2 sm:p-3 rounded-lg shadow-lg mb-4 sm:mb-0">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm">
+            {/* Spectator Mode Badge */}
             {isSpectating && (
-              <div className="text-sm bg-purple-900/50 px-3 py-1 rounded-full text-center">
-                <span className="font-semibold">Spectator Mode</span>
-              </div>
-            )}
-            <div className="text-sm">
-              <span className="text-gray-400">Mode:</span>{" "}
-              <span className="font-semibold">
-                {gameMode === "human" ? "Human vs Human" : "Play vs Computer"}
+              <span className="bg-purple-900/50 px-2 py-0.5 rounded font-semibold">
+                Spectating
               </span>
-            </div>
+            )}
+            {/* Game Mode */}
+            <span>{gameMode === "human" ? "👤 vs 👤" : "👤 vs 💻"}</span>
+            {/* Computer Mode Details */}
             {gameMode === "computer" && (
               <>
-                <div className="text-sm">
-                  <span className="text-gray-400">Playing as:</span>{" "}
+                {/* Separator */}
+                <span className="text-gray-500">•</span>
+                {/* Playing As */}
+                <span>
+                  As:{" "}
                   <span className="font-semibold">
-                    {computerColor === "b" ? "White" : "Black"}
+                    {computerColor === "b" ? "W" : "B"}
                   </span>
-                </div>
-                <div className="text-sm">
-                  <span className="text-gray-400">Computer ELO:</span>{" "}
+                </span>
+                {/* Separator */}
+                <span className="text-gray-500">•</span>
+                {/* ELO */}
+                <span>
+                  ELO:{" "}
                   <span className="font-semibold">
                     ~{estimateElo(difficulty)}
                   </span>
-                </div>
+                </span>
               </>
             )}
           </div>
         </div>
+      </div>
+
+      {/* --- Status and Thinking Indicators (Moved here for better layout) --- */}
+      <div className="w-full max-w-xl mx-auto mb-4 text-center">
+        {/* --- Status Bar --- */}
+        <div className="mb-2">
+          <div
+            className={`px-4 py-1 rounded-full inline-block ${
+              gameStatus.includes("Check") ? "bg-red-600/80" : "bg-gray-800/80"
+            }`}
+          >
+            {gameStatus}
+          </div>
+        </div>
+        {/* --- Computer Thinking Indicator --- */}
+        {/* --- TODO:  consider using a toast for this so it just overlays ----  */}
+        {isThinking && (
+          <div className="mb-2">
+            <div className="px-4 py-2 rounded-full inline-flex items-center gap-2 bg-blue-600/80">
+              <div className="w-3 h-3 bg-white rounded-full animate-pulse"></div>
+              <span>Computer is thinking...</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* --- Main Content Section --- */}
@@ -559,27 +589,6 @@ export function ChessGame() {
                 </motion.div>
               )}
             </AnimatePresence>
-            {/* --- Status Bar --- */}
-            <div className="absolute -top-10 left-0 right-0 text-center">
-              <div
-                className={`px-4 py-1 rounded-full inline-block ${
-                  gameStatus.includes("Check")
-                    ? "bg-red-600/80"
-                    : "bg-gray-800/80"
-                }`}
-              >
-                {gameStatus}
-              </div>
-            </div>
-            {/* --- Computer Thinking Indicator --- */}
-            {isThinking && (
-              <div className="absolute -top-20 left-0 right-0 text-center z-20">
-                <div className="px-4 py-2 rounded-full inline-flex items-center gap-2 bg-blue-600/80">
-                  <div className="w-3 h-3 bg-white rounded-full animate-pulse"></div>
-                  <span>Computer is thinking...</span>
-                </div>
-              </div>
-            )}
             {/* --- Chess Board --- */}
             {renderBoard()}
             {/* --- Mobile Restart Controls --- */}

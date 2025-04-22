@@ -1,0 +1,18 @@
+---
+description: When user wants to implement / modify / fix web socket connection in the app
+globs: 
+alwaysApply: false
+---
+# Chess WebSocket API Protocol
+
+The chess game uses a WebSocket-based API for all real-time communication between the frontend and backend. The full protocol, including all message types, request/response formats, and error handling, is documented in [api.md](mdc:docs/api.md).
+
+**Key Points:**
+- All messages are JSON objects with a `type` field.
+- Endpoints include: create, join, move, listGames, viewGame, chat, resign, pairRequest, reconnect, etc.
+- Each endpoint has a well-defined request and response schema.
+- Error responses always have `type: "error"` and a `message` field.
+- FEN strings are used to represent board state.
+- Betting games require additional wallet/transaction fields.
+
+**Reference:** See [api.md](mdc:docs/api.md) for the complete protocol specification and example payloads.
