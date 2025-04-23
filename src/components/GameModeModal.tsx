@@ -48,49 +48,83 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
   const { sendMessage, lastMessage } = useWebSocketContext();
 
   const handleStartGame = () => {
-    // Validation: if betting, require amount and txHash
-    if (isBetting && (!playerAmount || !transactionId)) {
-      // Optionally show error UI here
-      return;
-    }
-    // Send message to WebSocket server
-    const message = {
-      type: WebSocketMessageTypeEnum.Create,
-      walletAddress,
-      side, // <-- use selected side
-      duration,
-      isBetting,
-      transactionId,
-      playerAmount: isBetting ? Number(playerAmount) : null,
-    };
-    sendMessage(JSON.stringify(message));
+    if (gameMode === "computer") {
+      // Navigate directly for computer game
+      const playerPlaysAs = computerColor === "w" ? "b" : "w"; // Determine human player color
+      const computerParams = new URLSearchParams({
+        difficulty: String(difficulty),
+        computerColor: computerColor,
+        playerColor: playerPlaysAs, // Optional: Pass what color human plays
+      });
+      navigate(`/game-play/computer?${computerParams.toString()}`);
+      onOpenChange(false); // Close modal after navigating
+    } else {
+      // --- Human vs Human Logic ---
 
-    // keep track of when user click the create game button
-    setUserClickedCreate(true);
+      // Validation: if betting, require amount and txHash
+      if (isBetting && (!playerAmount || !transactionId)) {
+        toast.error("Please enter betting amount and transaction hash.");
+        return;
+      }
+
+      // Prepare and send message to WebSocket server
+      const message = {
+        type: WebSocketMessageTypeEnum.Create,
+        walletAddress,
+        side, // User's chosen side
+        duration,
+        isBetting,
+        transactionId: isBetting ? transactionId : null, // Send null if not betting
+        playerAmount: isBetting ? Number(playerAmount) : null,
+      };
+
+      console.log("Sending Create Game message:", message);
+      sendMessage(JSON.stringify(message));
+
+      // Keep track of when user click the create game button
+      setUserClickedCreate(true);
+      // Do NOT navigate here for human mode - wait for WS response
+    }
   };
 
   // listen to ws
   useEffect(() => {
-    if (!lastMessage?.data || !lastMessage?.event) return;
+    if (!lastMessage?.data) return; // Removed event check as data is primary
 
-    const messageData = JSON.parse(
-      lastMessage.data
-    ) as unknown as IWSCreatedMessage;
+    try {
+      const messageData = JSON.parse(lastMessage.data) as IWSCreatedMessage; // Assume IWSCreatedMessage structure
 
-    if (messageData.type === WebSocketMessageTypeEnum.Created) {
-      const data: IGameDetailsLocalStorage = {
-        gameId: messageData.gameId,
-        fen: messageData.fen,
-        isBetting: messageData.isBetting,
-      };
-      localStorageHelper.setItem(LocalStorageKeysEnum.GameDetails, data);
+      // Check if the specific type is 'CREATED'
+      if (messageData.type === WebSocketMessageTypeEnum.Created) {
+        console.log("Received CREATED message:", messageData);
+        const data: IGameDetailsLocalStorage = {
+          gameId: messageData.gameId,
+          fen: messageData.fen, // Initial FEN from server
+          isBetting: messageData.isBetting,
+          // Store player's assigned color from the backend message
+          playerColor: messageData.color, // Use the 'color' field from the message
+          // Add other relevant details if needed
+        };
+        localStorageHelper.setItem(LocalStorageKeysEnum.GameDetails, data);
 
-      setGameCreated(true);
-      setUserClickedCreate(false);
-      // navigate to lobby
-      navigate("/lobby");
+        setGameCreated(true);
+        setUserClickedCreate(false);
+
+        // Navigate to lobby for human game
+        console.log("Navigating to /lobby");
+        navigate("/lobby");
+        onOpenChange(false); // Close modal after successful creation and navigation
+      }
+    } catch (error) {
+      console.error(
+        "Error parsing WebSocket message:",
+        error,
+        lastMessage.data
+      );
+      // Handle potential JSON parse errors or unexpected message structures
     }
-  }, [lastMessage, navigate]);
+    // Remove side from dependencies unless it's used elsewhere in the effect
+  }, [lastMessage, navigate, onOpenChange]); // Removed side from dependencies
 
   // show error after 10 seconds if game is not created
   useEffect(() => {
@@ -108,7 +142,7 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
 
   // Define difficulty info
   const difficultyInfo = {
-    5: {
+    7: {
       name: "Beginner",
       elo: "~1600",
       icon: <User className="h-5 w-5 text-green-400" />,
@@ -118,12 +152,12 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
       elo: "~2050",
       icon: <Swords className="h-5 w-5 text-blue-400" />,
     },
-    15: {
+    13: {
       name: "Advanced",
       elo: "~2500",
       icon: <Trophy className="h-5 w-5 text-purple-400" />,
     },
-    20: {
+    16: {
       name: "Master",
       elo: "~3000",
       icon: <Crown className="h-5 w-5 text-amber-400" />,

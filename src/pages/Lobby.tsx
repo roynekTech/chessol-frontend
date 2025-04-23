@@ -71,7 +71,7 @@ export function Lobby() {
       messageData.gameId === gameId
     ) {
       // Optionally, show a quick message or spinner here
-      navigate(`/game/${gameId}`);
+      navigate(`/game-play/human`);
     }
   }, [lastMessage, gameId, navigate]);
 

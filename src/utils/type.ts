@@ -242,10 +242,12 @@ export type TWebSocketOutgoing =
 export enum LocalStorageKeysEnum {
   GameDetails = "gameDetails",
 }
+
 export interface IGameDetailsLocalStorage {
   gameId: string;
   fen: string;
   isBetting: boolean;
+  playerColor?: SideEnum | string;
 }
 
 export interface IGetBestMovePayload {
