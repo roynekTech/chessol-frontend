@@ -12,6 +12,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { estimateElo } from "../utils/chessUtils";
 import { usePostData } from "../utils/use-query-hooks";
 import { IGetBestMovePayload, IGetBestMoveResponse } from "../utils/type";
+import { toast } from "sonner"; // Import toast
 
 // --- Main ChessGame Component ---
 export function ChessGame() {
@@ -61,8 +62,11 @@ export function ChessGame() {
 
   // --- FEN, Difficulty, and Computer Move State ---
   const [fen, setFen] = useState(game.fen());
-  const [difficulty, setDifficulty] = useState<number>(initialDifficulty); // (Unused, for future refactor)
+  const [difficulty] = useState<number>(initialDifficulty); // Removed setDifficulty (unused)
   const [isThinking, setIsThinking] = useState<boolean>(false);
+  const [thinkingToastId, setThinkingToastId] = useState<
+    string | number | null
+  >(null); // State for the toast ID
 
   // --- Move Trail Animation State ---
   const [moveTrail, setMoveTrail] = useState<{
@@ -79,29 +83,32 @@ export function ChessGame() {
   } | null>(null);
 
   // --- API Hook for Best Move (Unused, for future refactor) ---
-  const {
-    mutate: getBestMove,
-    isSuccess: bestMovedRetrieved,
-    isError: errorGettingBestMove,
-  } = usePostData<IGetBestMoveResponse, IGetBestMovePayload>(`get_best_move`, [
-    "move",
-  ]);
+  const { mutate: getBestMove } = usePostData<
+    IGetBestMoveResponse,
+    IGetBestMovePayload
+  >(`get_best_move`, ["move"]);
 
   // --- Fetch the best move from the server (stub) ---
   const handleGetBestMove = () => {
     console.log("getting best move");
-    // getBestMove(
-    //   {
-    //     fen,
-    //     game_id: "randomGameId",
-    //     level: difficulty,
-    //   },
-    //   {
-    //     onSuccess: (data) => {
-    //       console.log("Best move retrieved successfully", data);
-    //     },
-    //   }
-    // );
+    getBestMove(
+      {
+        fen,
+        game_id: "randomGameId",
+        level: difficulty,
+      },
+      {
+        onSuccess: (data) => {
+          console.log("Best move retrieved successfully", data);
+          setLastMove({
+            from: data.best_move.slice(0, 2),
+            to: data.best_move.slice(2, 4),
+            bestMove: data.best_move,
+            promotion: "q",
+          });
+        },
+      }
+    );
   };
 
   // --- Effect: Fetch game data if spectating (stub) ---
@@ -180,6 +187,34 @@ export function ChessGame() {
       return () => clearTimeout(timer);
     }
   }, [moveTrail]);
+
+  // --- Effect: Show/Dismiss Thinking Toast ---
+  useEffect(() => {
+    if (isThinking) {
+      // Show loading toast when thinking starts
+      const id = toast.loading("Computer is thinking...", {
+        duration: Infinity, // Keep it open until dismissed
+        description: "Please wait for the computer's move.",
+        // You can add custom styling/icons here if desired
+        // Example: icon: <SpinnerIcon className="animate-spin" />
+      });
+      setThinkingToastId(id);
+    } else {
+      // Dismiss toast when thinking stops
+      if (thinkingToastId) {
+        toast.dismiss(thinkingToastId);
+        setThinkingToastId(null);
+      }
+    }
+
+    // Cleanup function to dismiss toast if component unmounts while thinking
+    return () => {
+      if (thinkingToastId) {
+        toast.dismiss(thinkingToastId);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isThinking]); // Re-run effect when isThinking changes
 
   // --- Effect: Computer's turn logic (stub for future refactor) ---
   useEffect(() => {
@@ -551,16 +586,8 @@ export function ChessGame() {
             {gameStatus}
           </div>
         </div>
-        {/* --- Computer Thinking Indicator --- */}
-        {/* --- TODO:  consider using a toast for this so it just overlays ----  */}
-        {isThinking && (
-          <div className="mb-2">
-            <div className="px-4 py-2 rounded-full inline-flex items-center gap-2 bg-blue-600/80">
-              <div className="w-3 h-3 bg-white rounded-full animate-pulse"></div>
-              <span>Computer is thinking...</span>
-            </div>
-          </div>
-        )}
+        {/* --- Computer Thinking Indicator (Removed - Replaced by Toast) --- */}
+        {/* The thinking indicator div that was here has been removed */}
       </div>
 
       {/* --- Main Content Section --- */}
