@@ -510,7 +510,7 @@ export function HumanVsHuman() {
         <Button
           variant="ghost"
           onClick={() => navigate("/")} // Navigate back
-          className="text-gray-300 hover:text-white"
+          className="text-gray-300 hover:text-black cursor-pointer"
         >
           <ArrowLeft className="mr-2 h-4 w-4" /> Back to Lobby/Home
         </Button>
@@ -591,7 +591,7 @@ export function HumanVsHuman() {
                     </h2>
                     {/* TODO: Offer Rematch / New Game options via WS? */}
                     <Button
-                      className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-6 py-2"
+                      className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-6 py-2 cursor-pointer"
                       onClick={() => navigate("/")} // Go back home for now
                     >
                       Back to Lobby/Home
