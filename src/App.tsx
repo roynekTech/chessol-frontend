@@ -19,6 +19,7 @@ import { Lobby } from "./pages/Lobby";
 import { WebSocketProvider } from "./context/WebSocketContext";
 import HumanVsHuman from "./pages/game-play/HumanVsHuman";
 import HumanVsComputer from "./pages/game-play/HumanVsComputer";
+import TestJoin from "./pages/TestJoin";
 
 const queryClient = new QueryClient();
 
@@ -51,6 +52,7 @@ function App() {
                     path="/game-play/computer"
                     element={<HumanVsComputer />}
                   />
+                  <Route path="/test-join" element={<TestJoin />} />
                 </Routes>
               </Router>
             </WebSocketProvider>

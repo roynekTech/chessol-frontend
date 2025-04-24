@@ -52,6 +52,7 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
     }
   }, [open]);
 
+  // function to handle join game
   const handleJoinGame = () => {
     if (!gameId || !walletAddress) {
       toast.error("Game ID and wallet are required.");
@@ -69,7 +70,7 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
         setIsJoining(false);
         toast.error("Join request timed out. Please try again.");
       }
-    }, 20000);
+    }, 10000); // 10 seconds timeout
     const message: IWSJoinMessage = {
       type: WebSocketMessageTypeEnum.Join,
       gameId: gameId,
@@ -83,8 +84,11 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
     toast.info("Attempting to join game...");
   };
 
+  // listen to websocket and handle join event
   useEffect(() => {
-    if (!lastMessage?.data || !lastMessage?.event || !gameId) return;
+    if (!lastMessage?.data || !lastMessage?.event || !gameId) {
+      return;
+    }
     let messageData: IWSJoinedMessage | IWSErrorMessage;
     try {
       messageData = JSON.parse(lastMessage.data) as
@@ -108,6 +112,7 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
         fen: joinedMessage.fen,
         isBetting: joinedMessage.isBetting,
         playerColor: joinedMessage.color,
+        isJoined: true,
       };
       localStorageHelper.setItem(LocalStorageKeysEnum.GameDetails, data);
       toast.success(`Successfully joined game ${joinedMessage.gameId}`);
@@ -122,7 +127,7 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
         setIsJoining(false);
       }
     }
-  }, [lastMessage, navigate, gameId, onOpenChange, isJoining]);
+  }, [lastMessage]);
 
   const canJoin = isBettingGame
     ? !!transactionId && !!requiredAmount && !isNaN(Number(requiredAmount))

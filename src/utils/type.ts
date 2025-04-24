@@ -110,8 +110,8 @@ export interface IWSMoveMessage {
   type: WebSocketMessageTypeEnum.Move;
   gameId: string;
   fen: string;
-  client: string;
-  move: IMove;
+  walletAddress: string;
+  move: string;
   initialFen: string;
 }
 
@@ -256,6 +256,7 @@ export interface IGameDetailsLocalStorage {
   fen: string;
   isBetting: boolean;
   playerColor?: SideEnum | string;
+  isJoined: boolean;
 }
 
 export interface IGetBestMovePayload {

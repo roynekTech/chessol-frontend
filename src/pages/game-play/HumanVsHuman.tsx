@@ -19,6 +19,7 @@ import {
   IWSErrorMessage,
   IWSGameEndedMessage,
   IWSMoveBroadcast,
+  IWSMoveMessage,
 } from "../../utils/type";
 import { helperUtil } from "../../utils/helper";
 import { useWallet } from "@solana/wallet-adapter-react";
@@ -80,14 +81,14 @@ export function HumanVsHuman() {
 
   // --- Opponent/Connection State ---
   const [isOpponentConnected, setIsOpponentConnected] = useState(false); // Track opponent status
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [opponentName, setOpponentName] = useState("Opponent"); // Placeholder
+  // TODO: Get opponent name from WebSocket
+  const opponentName = "Opponent";
   const [winner, setWinner] = useState<Color | "draw" | null>(null); // Store winner for game over state
 
   const { publicKey } = useWallet();
   const walletAddress = publicKey?.toBase58();
 
-  // --- Update game status based on chess.js state ---
+  // Update game status based on chess.js state
   const updateGameStatus = useCallback(
     (isGameOver = false, endReason = "") => {
       if (winner) return; // Don't update status if already ended by WS message
@@ -136,40 +137,37 @@ export function HumanVsHuman() {
         }
       }
     },
-    [game, winner, playerColor, isOpponentConnected] // Added playerColor, isOpponentConnected
+    [game, winner, playerColor, isOpponentConnected]
   );
 
-  // --- Effects ---
-
-  // --- Effect: Initial setup and validation ---
+  // try to reconnect to the game when page loads and user was in the game already
   useEffect(() => {
     // Always load latest game details from localStorage
     const storedDetails = localStorageHelper.getItem(
       LocalStorageKeysEnum.GameDetails
     ) as IGameDetailsLocalStorage | null;
     if (!storedDetails?.gameId || !storedDetails?.playerColor) {
-      toast.error("Missing game details. Redirecting...");
+      // toast.error("Missing game details. Redirecting...");
       console.error("Missing gameId or playerColor", storedDetails);
-      navigate("/"); // Redirect if essential details are missing
+      navigate("/games");
       return;
     }
-    // Send reconnect message with loaded details
-    sendMessage(
-      JSON.stringify({
-        type: WebSocketMessageTypeEnum.Reconnect,
-        gameId: storedDetails.gameId,
-        playerId: walletAddress,
-      })
-    );
-    // Initial status update based on loaded FEN
+
+    if (storedDetails?.isJoined) {
+      sendMessage(
+        JSON.stringify({
+          type: WebSocketMessageTypeEnum.Reconnect,
+          gameId: storedDetails.gameId,
+          playerId: walletAddress,
+        })
+      );
+    }
+
     updateGameStatus();
-    console.log(
-      `HumanVsHuman initialized. GameID: ${storedDetails.gameId}, PlayerColor: ${storedDetails.playerColor}, Initial FEN: ${storedDetails.fen}`
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    console.log("Game initialized - storedDetails", storedDetails);
   }, [navigate]); // Only run on mount
 
-  // --- Effect: Handle WebSocket Messages ---
+  // Websocket handlers
   useEffect(() => {
     if (!lastMessage?.data) return;
 
@@ -283,6 +281,7 @@ export function HumanVsHuman() {
               playerColor: messageData.color || playerColor!,
               fen: messageData.fen,
               isBetting: gameDetails?.isBetting || false,
+              isJoined: true,
             });
           }
           setIsOpponentConnected(true);
@@ -307,18 +306,9 @@ export function HumanVsHuman() {
       );
       toast.error("Received invalid data from server.");
     }
-  }, [
-    lastMessage,
-    gameId,
-    game,
-    updateGameStatus,
-    gameStatus,
-    playerColor,
-    gameDetails,
-    navigate,
-  ]);
+  }, [lastMessage]);
 
-  // --- Effect: Update the timer every second ---
+  // Effect: Update the timer every second
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
     if (activeTimer && !game.isGameOver() && !winner && isOpponentConnected) {
@@ -331,18 +321,12 @@ export function HumanVsHuman() {
             // The server should ideally send a GAME_ENDED message too
             if (interval) clearInterval(interval);
             const timeoutWinner = activeTimer === "w" ? "b" : "w";
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const timeoutLoser = activeTimer;
             setWinner(timeoutWinner);
             updateGameStatus(
               true,
               `${timeoutWinner === "w" ? "White" : "Black"} wins on time`
             );
-            setActiveTimer(null); // Stop timer immediately
-
-            // Optionally, send a message indicating timeout locally?
-            // sendMessage(JSON.stringify({ type: 'timeout', gameId, timedOutPlayer: timeoutLoser }));
-            // Rely on server to confirm timeout via GAME_ENDED
+            setActiveTimer(null);
           }
           return { ...prev, [activeTimer]: newTime };
         });
@@ -438,12 +422,12 @@ export function HumanVsHuman() {
                 setValidMoves([]);
                 return;
               }
-              const wsMoveMessage = {
+              const wsMoveMessage: IWSMoveMessage = {
                 type: WebSocketMessageTypeEnum.Move,
                 gameId: gameId,
                 fen: currentFen, // FEN after move
                 initialFen: initialFen, // FEN before move
-                client: walletAddress, // Required by API
+                walletAddress: walletAddress, // Required by API
                 move: `${moveAttempt.from}${moveAttempt.to}`,
               };
               console.log("Sending WS Move (API-compliant):", wsMoveMessage);
@@ -589,7 +573,7 @@ export function HumanVsHuman() {
         />
 
         {/* --- Center: Board and Controls --- */}
-        <div className="lg:order-none mb-6 lg:mb-0">
+        <div className="lg:order-0 -order-3 mb-6 lg:mb-0">
           <div className="aspect-square mx-auto relative max-w-xl">
             {/* --- Game Over Banner --- */}
             <AnimatePresence>
