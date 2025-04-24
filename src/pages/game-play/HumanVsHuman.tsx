@@ -266,7 +266,7 @@ export function HumanVsHuman() {
           if (messageData.fen) {
             game.load(messageData.fen); // Sync board to server FEN
             setFen(game.fen());
-            setCurrentPlayer(game.turn());
+            setCurrentPlayer(game.turn() || "w");
             setMoveHistory(game.history({ verbose: false }));
             setCapturedPieces(calculateCapturedPieces(game.board()));
             // --- Persist latest game details to localStorage ---
