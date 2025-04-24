@@ -11,6 +11,7 @@ interface IChessBoardProps {
   handleSquareClick: (square: Square) => void;
   lastMove?: { from: Square; to: Square } | null; // Optional: for highlighting last move
   moveTrail?: { from: Square; to: Square } | null; // Optional: for move animation trail
+  boardOrientation?: Color; // Optional: ('w' or 'b') to flip the board
   // Add orientation prop if needed later ('w' or 'b')
 }
 
@@ -44,21 +45,36 @@ export const ChessBoard: React.FC<IChessBoardProps> = ({
   handleSquareClick,
   lastMove,
   moveTrail,
+  boardOrientation = "w", // Default to white's perspective
 }) => {
-  const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
-  const ranks = ["8", "7", "6", "5", "4", "3", "2", "1"];
-  // Add logic here later to reverse ranks/files based on orientation prop
+  const filesBase = ["a", "b", "c", "d", "e", "f", "g", "h"];
+  const ranksBase = ["8", "7", "6", "5", "4", "3", "2", "1"];
+
+  // Reverse ranks and files if orientation is black
+  const files = boardOrientation === "b" ? [...filesBase].reverse() : filesBase;
+  const ranks = boardOrientation === "b" ? [...ranksBase].reverse() : ranksBase;
 
   return (
     <div className="grid grid-cols-8 gap-0 border-4 border-amber-900 rounded-lg overflow-hidden shadow-xl aspect-square relative">
       {ranks
-        .map((rank, rankIndex) =>
-          files.map((file, fileIndex) => {
-            const squareId = (file + rank) as Square;
+        .map((rank, rankIndexOriginal) =>
+          files.map((file, fileIndexOriginal) => {
+            // Determine the actual rank and file index based on orientation
+            const rankIndex =
+              boardOrientation === "b"
+                ? 7 - rankIndexOriginal
+                : rankIndexOriginal;
+            const fileIndex =
+              boardOrientation === "b"
+                ? 7 - fileIndexOriginal
+                : fileIndexOriginal;
+
+            const squareId = (filesBase[fileIndex] +
+              ranksBase[rankIndex]) as Square;
             const isLight = (fileIndex + rankIndex) % 2 === 1;
             const squareColor = isLight ? "bg-amber-200" : "bg-amber-800";
-            // chess.js board() is indexed [rank][file]
-            const piece = board[rankIndex]?.[fileIndex] ?? null; // Use optional chaining and nullish coalescing
+            // chess.js board() is indexed [rank][file] (0-7 for both)
+            const piece = board[rankIndex]?.[fileIndex] ?? null;
 
             // --- Highlighting Logic ---
             let highlightClass = "";

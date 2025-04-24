@@ -469,8 +469,8 @@ export function HumanVsComputer() {
       <div className="w-full max-w-6xl mx-auto mb-4 flex flex-row justify-between items-center">
         <Button
           variant="ghost"
-          onClick={() => navigate("/")} // Go back to setup or main menu
-          className="text-gray-300 hover:text-white"
+          onClick={() => navigate("/games")} // Go back to setup or main menu
+          className="text-gray-300 hover:text-black cursor-pointer"
         >
           <ArrowLeft className="mr-2 h-4 w-4" /> Back
         </Button>

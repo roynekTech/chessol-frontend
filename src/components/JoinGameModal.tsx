@@ -17,42 +17,18 @@ import {
   IGameDetailsLocalStorage,
   LocalStorageKeysEnum,
   WebSocketMessageTypeEnum,
+  IWSJoinedMessage,
+  IWSErrorMessage,
+  IWSJoinMessage,
 } from "../utils/type";
 import { localStorageHelper } from "../utils/localStorageHelper";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import { useWebSocketContext } from "../context/useWebSocketContext";
 
-interface IWSErrorMessage {
-  type: WebSocketMessageTypeEnum.Error;
-  message: string;
-  gameId?: string;
-}
-
 interface IJoinGameModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}
-
-interface IWSJoinedMessage {
-  type: WebSocketMessageTypeEnum.Joined;
-  gameId: string;
-  fen: string;
-  color: "w" | "b";
-  isBetting: boolean;
-  betDetails?: {
-    playerAmount: number;
-    transactionIds: string[];
-  };
-  nonce?: string;
-}
-
-interface IWSJoinMessagePayload {
-  type: WebSocketMessageTypeEnum.Join;
-  gameId: string;
-  walletAddress: string;
-  transactionId?: string;
-  playerAmount?: number | null;
 }
 
 export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
@@ -88,13 +64,13 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
       return;
     }
     setIsJoining(true);
-    const timeoutId = setTimeout(() => {
+    setTimeout(() => {
       if (isJoining) {
         setIsJoining(false);
         toast.error("Join request timed out. Please try again.");
       }
-    }, 8000);
-    const message: IWSJoinMessagePayload = {
+    }, 20000);
+    const message: IWSJoinMessage = {
       type: WebSocketMessageTypeEnum.Join,
       gameId: gameId,
       walletAddress: walletAddress,
@@ -105,8 +81,6 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
     }
     sendMessage(JSON.stringify(message));
     toast.info("Attempting to join game...");
-    const timeoutRef = { current: timeoutId };
-    return () => clearTimeout(timeoutRef.current);
   };
 
   useEffect(() => {
@@ -133,12 +107,13 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
         gameId: joinedMessage.gameId,
         fen: joinedMessage.fen,
         isBetting: joinedMessage.isBetting,
+        playerColor: joinedMessage.color,
       };
       localStorageHelper.setItem(LocalStorageKeysEnum.GameDetails, data);
       toast.success(`Successfully joined game ${joinedMessage.gameId}`);
       setIsJoining(false);
       onOpenChange(false);
-      navigate(`/game/${joinedMessage.gameId}`);
+      navigate(`/game-play/human`);
     } else if (messageData.type === WebSocketMessageTypeEnum.Error) {
       if (isJoining) {
         toast.error(
@@ -166,7 +141,7 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
       >
         <div className="relative p-4 sm:p-6">
           <DialogHeader className="mb-6 text-center">
-            <DialogTitle className="text-3xl font-bold">
+            <DialogTitle className="text-3xl font-bold text-center">
               <span className="bg-gradient-to-r from-amber-400 via-orange-500 to-yellow-500 text-transparent bg-clip-text">
                 Join Game
               </span>

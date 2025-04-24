@@ -25,8 +25,6 @@ export const GameInfo: React.FC<IGameInfoProps> = ({
   playerColor,
   difficulty,
   opponentName = "Opponent", // Default opponent name
-  isConnected = false, // Default connection status
-  gameId,
 }) => {
   const renderComputerDetails = () => {
     if (
@@ -61,13 +59,6 @@ export const GameInfo: React.FC<IGameInfoProps> = ({
         <span className="whitespace-nowrap">
           vs <span className="font-semibold">{opponentName}</span>
         </span>
-        <span className="text-gray-500 hidden sm:inline">•</span>
-        <Badge
-          variant={isConnected ? "default" : "destructive"}
-          className="px-1.5 py-0.5 text-xs"
-        >
-          {isConnected ? "Connected" : "Offline"}
-        </Badge>
       </>
     );
   };
@@ -83,13 +74,6 @@ export const GameInfo: React.FC<IGameInfoProps> = ({
           >
             Spectating
           </Badge>
-        )}
-
-        {/* Optional Game ID */}
-        {gameId && (
-          <span className="text-gray-400 font-mono text-xs hidden md:inline">
-            ID: {gameId}
-          </span>
         )}
 
         {/* Game Mode Icon/Text */}

@@ -32,6 +32,8 @@ interface IPlayerPanelProps {
   showRestartButton?: boolean; // Control visibility of restart button
   getPieceImageUrl: (piece: { type: PieceSymbol; color: Color }) => string; // Function to get image URL
   formatTime: (seconds: number) => string; // Function to format time
+  isPlayer?: boolean; // Indicates if this panel represents the user viewing the game
+  isConnected?: boolean; // Indicates if the player represented by this panel is connected
 }
 
 // --- Helper: Move History Display (Internal or could be separate) ---

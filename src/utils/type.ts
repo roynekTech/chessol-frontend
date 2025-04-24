@@ -78,6 +78,14 @@ export interface IWSCreatedMessage {
   nonce: string;
 }
 
+export interface IWSErrorMessage {
+  type: WebSocketMessageTypeEnum.Error;
+  message: string;
+}
+
+// Consider a union type for easier handling in the component
+export type IWSMessage = IWSCreatedMessage | IWSErrorMessage; // Example union type
+
 // 2. Join Game
 export interface IWSJoinMessage {
   type: WebSocketMessageTypeEnum.Join;
