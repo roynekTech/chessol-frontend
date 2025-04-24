@@ -103,7 +103,9 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
 
   // listen to ws
   useEffect(() => {
-    if (!lastMessage?.data) return; // Removed event check as data is primary
+    if (!lastMessage?.data) {
+      return;
+    } // Removed event check as data is primary
 
     try {
       const messageData = JSON.parse(lastMessage.data);
@@ -119,11 +121,10 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
 
         const data: IGameDetailsLocalStorage = {
           gameId: createdMessage.gameId,
-          fen: createdMessage.fen, // Initial FEN from server
+          fen: createdMessage.fen,
           isBetting: createdMessage.isBetting,
-          // Store player's assigned color from the backend message
-          playerColor: createdMessage.color, // Use the 'color' field from the message
-          // Add other relevant details if needed
+          playerColor: createdMessage.color,
+          isJoined: true,
         };
         localStorageHelper.setItem(LocalStorageKeysEnum.GameDetails, data);
 
