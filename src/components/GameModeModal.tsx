@@ -64,8 +64,6 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
       navigate(`/game-play/computer?${computerParams.toString()}`);
       onOpenChange(false); // Close modal after navigating
     } else {
-      // --- Human vs Human Logic ---
-
       // Validation: if betting, require amount and txHash
       if (isBetting && (!playerAmount || !transactionId)) {
         toast.error("Please enter betting amount and transaction hash.");
@@ -93,11 +91,8 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
       console.log("Sending Create Game (Human) message:", message);
       sendMessage(JSON.stringify(message));
 
-      // Keep track of when user click the create game button
       setUserClickedCreate(true);
-      // Reset game created status in case of previous attempts
       setGameCreated(false);
-      // Do NOT navigate here for human mode - wait for WS response
     }
   };
 
@@ -105,19 +100,16 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
   useEffect(() => {
     if (!lastMessage?.data) {
       return;
-    } // Removed event check as data is primary
+    }
 
     try {
       const messageData = JSON.parse(lastMessage.data);
 
-      // --- Handle Different Message Types ---
       if (
         messageData.type === WebSocketMessageTypeEnum.Created &&
         userClickedCreate
       ) {
-        // --- Handle CREATED Message ---
-        const createdMessage = messageData as IWSCreatedMessage; // Assert type after checking
-        console.log("Received CREATED message:", createdMessage);
+        const createdMessage = messageData as IWSCreatedMessage;
 
         const data: IGameDetailsLocalStorage = {
           gameId: createdMessage.gameId,
@@ -131,17 +123,14 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
         setGameCreated(true);
         setUserClickedCreate(false);
 
-        // Navigate to lobby for human game
-        console.log("Navigating to /lobby");
+        // Navigate to lobby and wait for opponent to join
         navigate("/lobby");
-        onOpenChange(false); // Close modal after successful creation and navigation
+        onOpenChange(false);
       } else if (
         messageData.type === WebSocketMessageTypeEnum.Error &&
         userClickedCreate
       ) {
-        // --- Handle ERROR Message ---
-        const errorMessage = messageData as IWSErrorMessage; // Assert type after checking
-        // Handle potential error messages from the backend during creation
+        const errorMessage = messageData as IWSErrorMessage;
         console.error("Received Error message:", errorMessage);
         toast.error(
           `Game creation failed: ${errorMessage.message || "Unknown error"}`
@@ -154,11 +143,12 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
         error,
         lastMessage.data
       );
-      // Potentially show a generic error toast if parsing fails
-      // toast.error("An unexpected error occurred communicating with the server.");
+      toast.error(
+        "An error occurred while processing the game creation. Please try again."
+      );
+      setUserClickedCreate(false); // Reset click tracker on error
     }
-    // Remove side from dependencies unless it's used elsewhere in the effect
-  }, [lastMessage, navigate, onOpenChange, userClickedCreate]); // Added userClickedCreate dependency
+  }, [lastMessage]);
 
   // show error after 10 seconds if game is not created
   useEffect(() => {
@@ -171,13 +161,11 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
           toast.error(
             "Game creation timed out. Please check your connection and try again."
           );
-          setUserClickedCreate(false); // Reset the flag after timeout
+          setUserClickedCreate(false);
         }
-      }, 15000); // Increased timeout to 15 seconds
+      }, 15000);
     }
 
-    // Cleanup function to clear the timeout if the component unmounts
-    // or if the dependencies (userClickedCreate, gameCreated) change
     return () => {
       if (timeoutId) {
         clearTimeout(timeoutId);

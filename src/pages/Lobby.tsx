@@ -47,12 +47,14 @@ export function Lobby() {
   const navigate = useNavigate();
   const { lastMessage } = useWebSocketContext();
 
+  // Fetch game details from localStorage and set a random tip and game ID
   useEffect(() => {
-    // Fetch game details from localStorage
     const details = localStorageHelper.getItem(
       LocalStorageKeysEnum.GameDetails
     ) as IGameDetailsLocalStorage | null;
-    if (details?.gameId) setGameId(details.gameId);
+    if (details?.gameId) {
+      setGameId(details.gameId);
+    }
     // Pick a random tip
     setTip(CHESS_TIPS[Math.floor(Math.random() * CHESS_TIPS.length)]);
   }, []);

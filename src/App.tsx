@@ -19,7 +19,6 @@ import { Lobby } from "./pages/Lobby";
 import { WebSocketProvider } from "./context/WebSocketContext";
 import HumanVsHuman from "./pages/game-play/HumanVsHuman";
 import HumanVsComputer from "./pages/game-play/HumanVsComputer";
-import TestJoin from "./pages/TestJoin";
 
 const queryClient = new QueryClient();
 
@@ -29,11 +28,7 @@ function App() {
   // You can also provide a custom RPC endpoint.
   const endpoint = useMemo(() => clusterApiUrl(network), [network]);
 
-  const wallets = useMemo(
-    () => [new UnsafeBurnerWalletAdapter()],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [network]
-  );
+  const wallets = useMemo(() => [new UnsafeBurnerWalletAdapter()], [network]);
 
   return (
     <ConnectionProvider endpoint={endpoint}>
@@ -52,7 +47,6 @@ function App() {
                     path="/game-play/computer"
                     element={<HumanVsComputer />}
                   />
-                  <Route path="/test-join" element={<TestJoin />} />
                 </Routes>
               </Router>
             </WebSocketProvider>

@@ -56,7 +56,8 @@ export function HumanVsHuman() {
     new Chess(initialFen === "start" ? undefined : initialFen)
   );
   const [fen, setFen] = useState(game.fen());
-  const [currentPlayer, setCurrentPlayer] = useState<Color>(game.turn());
+  // Use playerTurn as the single source of truth for whose turn it is
+  const [playerTurn, setPlayerTurn] = useState<Color>(game.turn() || "w"); // Default to white if not set
   const [gameStatus, setGameStatus] = useState("Waiting for opponent...");
   const [moveHistory, setMoveHistory] = useState<string[]>(
     game.history({ verbose: false })
@@ -95,7 +96,7 @@ export function HumanVsHuman() {
 
       const turn = game.turn();
       setFen(game.fen());
-      setCurrentPlayer(turn);
+      setPlayerTurn(turn);
       setMoveHistory(game.history({ verbose: false }));
 
       if (isGameOver || game.isGameOver()) {
@@ -125,7 +126,7 @@ export function HumanVsHuman() {
         setActiveTimer(turn); // Timer runs for the player in check
       } else {
         // --- Modern UX: Always allow your move, regardless of opponent connection ---
-        if (turn === playerColor) {
+        if (playerTurn === playerColor) {
           setGameStatus("Your move");
           setActiveTimer(turn);
         } else if (!isOpponentConnected) {
@@ -146,6 +147,7 @@ export function HumanVsHuman() {
     const storedDetails = localStorageHelper.getItem(
       LocalStorageKeysEnum.GameDetails
     ) as IGameDetailsLocalStorage | null;
+
     if (!storedDetails?.gameId || !storedDetails?.playerColor) {
       // toast.error("Missing game details. Redirecting...");
       console.error("Missing gameId or playerColor", storedDetails);
@@ -154,13 +156,18 @@ export function HumanVsHuman() {
     }
 
     if (storedDetails?.isJoined) {
-      sendMessage(
-        JSON.stringify({
-          type: WebSocketMessageTypeEnum.Reconnect,
-          gameId: storedDetails.gameId,
-          playerId: walletAddress,
-        })
-      );
+      // sleep for 1 second before reconnecting
+      (async () => {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        console.log("Reconnecting to game...");
+        sendMessage(
+          JSON.stringify({
+            type: WebSocketMessageTypeEnum.Reconnect,
+            gameId: storedDetails.gameId,
+            playerId: walletAddress,
+          })
+        );
+      })();
     }
 
     updateGameStatus();
@@ -189,7 +196,7 @@ export function HumanVsHuman() {
           if (moveMsg.fen) {
             game.load(moveMsg.fen); // Sync board to server FEN
             setFen(game.fen());
-            setCurrentPlayer(game.turn());
+            setPlayerTurn(game.turn());
             setMoveHistory(game.history({ verbose: false }));
             setCapturedPieces(calculateCapturedPieces(game.board()));
             // --- Persist latest game details to localStorage ---
@@ -198,6 +205,7 @@ export function HumanVsHuman() {
               playerColor: playerColor!,
               fen: game.fen(),
               isBetting: gameDetails?.isBetting || false,
+              isJoined: true,
             });
           }
           setMoveTrail(moveMsg.lastMove as { from: Square; to: Square });
@@ -262,33 +270,43 @@ export function HumanVsHuman() {
         case WebSocketMessageTypeEnum.Joined:
         case WebSocketMessageTypeEnum.Created:
         case WebSocketMessageTypeEnum.Reconnected: {
+          console.log("lastMessage", lastMessage);
           // --- On join/rejoin, always use the server's FEN ---
           if (messageData.fen) {
-            game.load(messageData.fen); // Sync board to server FEN
-            setFen(game.fen());
-            setCurrentPlayer(game.turn() || "w");
+            try {
+              game.load(messageData.fen); // Sync board to server FEN
+            } catch {
+              toast.error("Invalid FEN received from server. Redirecting...");
+              localStorageHelper.deleteItem(LocalStorageKeysEnum.GameDetails);
+              navigate("/");
+              break;
+            }
+            // --- Always update all state after loading FEN ---
+            const newFen = game.fen();
+            const newTurn = game.turn();
+            setFen(newFen);
+            setPlayerTurn(newTurn);
             setMoveHistory(game.history({ verbose: false }));
             setCapturedPieces(calculateCapturedPieces(game.board()));
             // --- Persist latest game details to localStorage ---
             localStorageHelper.setItem(LocalStorageKeysEnum.GameDetails, {
               gameId: messageData.gameId || gameId!,
               playerColor: messageData.color || playerColor!,
-              fen: messageData.fen,
+              fen: newFen,
               isBetting: gameDetails?.isBetting || false,
+              isJoined: true,
             });
             setGameDetails({
               gameId: messageData.gameId || gameId!,
               playerColor: messageData.color || playerColor!,
-              fen: messageData.fen,
+              fen: newFen,
               isBetting: gameDetails?.isBetting || false,
               isJoined: true,
             });
           }
           setIsOpponentConnected(true);
-          if (gameStatus === "Waiting for opponent...") {
-            console.log("Opponent connected/reconnected, starting game flow.");
-            updateGameStatus();
-          }
+          // --- Always update game status after state updates ---
+          updateGameStatus();
           toast.info("Opponent connected.");
           break;
         }
@@ -355,7 +373,7 @@ export function HumanVsHuman() {
     (square: Square) => {
       if (!gameId || !playerColor) return; // Safety check
       if (winner || game.isGameOver()) return; // Game already over
-      if (currentPlayer !== playerColor) {
+      if (playerTurn !== playerColor) {
         // Not player's turn
         toast.error("It's not your turn!");
         return;
@@ -470,7 +488,7 @@ export function HumanVsHuman() {
     [
       game,
       selectedSquare,
-      currentPlayer,
+      playerTurn,
       playerColor, // Added playerColor dependency
       updateGameStatus,
       sendMessage,
@@ -509,7 +527,7 @@ export function HumanVsHuman() {
       <div className="w-full max-w-6xl mx-auto mb-4 flex flex-row justify-between items-center">
         <Button
           variant="ghost"
-          onClick={() => navigate("/")} // Navigate back
+          onClick={() => navigate("/")}
           className="text-gray-300 hover:text-black cursor-pointer"
         >
           <ArrowLeft className="mr-2 h-4 w-4" /> Back to Lobby/Home
@@ -519,7 +537,6 @@ export function HumanVsHuman() {
           gameMode="human"
           opponentName={opponentName}
           gameId={gameId || ""}
-          // isSpectating={false} // Assuming player is not spectating
         />
         {/* --- Resign Button --- */}
         {!winner && !game.isGameOver() && isOpponentConnected && (
@@ -561,15 +578,15 @@ export function HumanVsHuman() {
         <PlayerPanel
           playerColor="b"
           playerName={blackPlayerName}
-          isCurrentPlayer={currentPlayer === "b"}
+          isCurrentPlayer={playerTurn === "b"}
           timerValue={timers.b}
-          capturedPieces={capturedPieces.b} // Pieces captured by Black
+          capturedPieces={capturedPieces.b}
           moveHistory={moveHistory}
           getPieceImageUrl={helperUtil.getPieceImageUrl}
           formatTime={helperUtil.formatTime}
-          isPlayer={playerColor === "b"} // Indicate if this panel represents the user
-          showRestartButton={false} // Restart logic handled by server/new game flow
-          isConnected={playerColor === "b" ? true : isOpponentConnected} // User is always connected, check opponent
+          isPlayer={playerColor === "b"}
+          showRestartButton={false}
+          isConnected={playerColor === "b" ? true : isOpponentConnected}
         />
 
         {/* --- Center: Board and Controls --- */}
@@ -577,7 +594,7 @@ export function HumanVsHuman() {
           <div className="aspect-square mx-auto relative max-w-xl">
             {/* --- Game Over Banner --- */}
             <AnimatePresence>
-              {winner || game.isGameOver() ? ( // Check winner state from WS or local game obj
+              {winner || game.isGameOver() ? (
                 <motion.div
                   initial={{ opacity: 0, y: -20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -592,7 +609,7 @@ export function HumanVsHuman() {
                     {/* TODO: Offer Rematch / New Game options via WS? */}
                     <Button
                       className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-6 py-2 cursor-pointer"
-                      onClick={() => navigate("/")} // Go back home for now
+                      onClick={() => navigate("/")}
                     >
                       Back to Lobby/Home
                     </Button>
@@ -604,7 +621,7 @@ export function HumanVsHuman() {
             {/* --- Chess Board Component --- */}
             <ChessBoard
               board={game.board()}
-              turn={currentPlayer}
+              turn={playerTurn}
               selectedSquare={selectedSquare}
               validMoves={validMoves}
               handleSquareClick={handleSquareClick}
@@ -617,7 +634,7 @@ export function HumanVsHuman() {
               moveTrail={moveTrail}
               boardOrientation={
                 playerColor === "w" || playerColor === "b" ? playerColor : "w"
-              } // Ensure type is Color or default
+              }
             />
 
             {/* --- FEN Display (Optional Debug) --- */}
@@ -633,15 +650,15 @@ export function HumanVsHuman() {
         <PlayerPanel
           playerColor="w"
           playerName={whitePlayerName}
-          isCurrentPlayer={currentPlayer === "w"}
+          isCurrentPlayer={playerTurn === "w"}
           timerValue={timers.w}
-          capturedPieces={capturedPieces.w} // Pieces captured by White
+          capturedPieces={capturedPieces.w}
           moveHistory={moveHistory}
           getPieceImageUrl={helperUtil.getPieceImageUrl}
           formatTime={helperUtil.formatTime}
-          isPlayer={playerColor === "w"} // Indicate if this panel represents the user
+          isPlayer={playerColor === "w"}
           showRestartButton={false}
-          isConnected={playerColor === "w" ? true : isOpponentConnected} // User is always connected, check opponent
+          isConnected={playerColor === "w" ? true : isOpponentConnected}
         />
       </div>
     </div>

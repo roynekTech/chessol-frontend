@@ -71,6 +71,7 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
         toast.error("Join request timed out. Please try again.");
       }
     }, 10000); // 10 seconds timeout
+
     const message: IWSJoinMessage = {
       type: WebSocketMessageTypeEnum.Join,
       gameId: gameId,
@@ -89,6 +90,7 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
     if (!lastMessage?.data || !lastMessage?.event || !gameId) {
       return;
     }
+
     let messageData: IWSJoinedMessage | IWSErrorMessage;
     try {
       messageData = JSON.parse(lastMessage.data) as
@@ -99,12 +101,14 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
       setIsJoining(false);
       return;
     }
+
     if (
       messageData.type !== WebSocketMessageTypeEnum.Error &&
       messageData.gameId !== gameId
     ) {
       return;
     }
+    
     if (messageData.type === WebSocketMessageTypeEnum.Joined) {
       const joinedMessage = messageData;
       const data: IGameDetailsLocalStorage = {

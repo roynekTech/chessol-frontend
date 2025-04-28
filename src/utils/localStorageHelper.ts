@@ -21,6 +21,27 @@ export const localStorageHelper = {
     }
   },
 
+  updateItem: (
+    key: string,
+    value: Record<string, string[]> | string | object
+  ) => {
+    try {
+      const existingValue = localStorageHelper.getItem(key);
+      if (existingValue) {
+        if (typeof existingValue === "object" && typeof value === "object") {
+          const updatedValue = { ...existingValue, ...value };
+          localStorageHelper.setItem(key, updatedValue);
+        } else {
+          localStorageHelper.setItem(key, value);
+        }
+      } else {
+        localStorageHelper.setItem(key, value);
+      }
+    } catch (error) {
+      console.error("Error updating item in localStorage", error);
+    }
+  },
+
   deleteItem: (key: string) => {
     try {
       localStorage.removeItem(key);
