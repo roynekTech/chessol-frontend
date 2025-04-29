@@ -110,6 +110,22 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
         userClickedCreate
       ) {
         const createdMessage = messageData as IWSCreatedMessage;
+        console.log("Received game creation response:", {
+          requestedColor: side,
+          assignedColor: createdMessage.color,
+          fullMessage: createdMessage,
+        });
+
+        // Validate color assignment
+        if (createdMessage.color !== side) {
+          console.error("Server assigned different color than requested:", {
+            requested: side,
+            assigned: createdMessage.color,
+          });
+          toast.error("Error: Unexpected color assignment from server");
+          setUserClickedCreate(false);
+          return;
+        }
 
         const data: IGameDetailsLocalStorage = {
           gameId: createdMessage.gameId,
@@ -117,7 +133,7 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
           isBetting: createdMessage.isBetting,
           playerColor: createdMessage.color,
           isJoined: true,
-          duration: createdMessage.duration,
+          duration: createdMessage?.duration || duration,
         };
         localStorageHelper.setItem(LocalStorageKeysEnum.GameDetails, data);
 

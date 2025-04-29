@@ -47,6 +47,7 @@ interface IGameState {
   activeTimer: Color | null;
   isOpponentConnected: boolean;
   isTimerRunning: boolean;
+  moveHighlight: { from: Square; to: Square } | null;
 }
 
 // --- Utility Function ---
@@ -116,6 +117,9 @@ export function HumanVsHumanV2() {
   const { publicKey } = useWallet();
   const walletAddress = publicKey?.toBase58() || "";
 
+  // --- Move highlight timeout ref ---
+  const moveHighlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Get game details from localStorage, including duration
   const gameDetails = localStorageHelper.getItem(
     LocalStorageKeysEnum.GameDetails
@@ -123,6 +127,7 @@ export function HumanVsHumanV2() {
 
   const gameId = gameDetails?.gameId || null;
   const playerColor = (gameDetails?.playerColor || null) as Color | null;
+
   // Get duration in seconds (default to 600s = 10min if not found)
   const initialDurationSec = gameDetails?.duration
     ? gameDetails.duration / 1000
@@ -131,12 +136,10 @@ export function HumanVsHumanV2() {
   const boardOrientationRef = useRef<"w" | "b">(
     (playerColor as "w" | "b") || "w"
   );
-
-  useEffect(() => {
-    console.log("Board orientation set to:", boardOrientationRef.current);
-    console.log("Player color from localStorage:", playerColor);
-    console.log("Initial Duration (sec):", initialDurationSec);
-  }, []);
+  console.log("initial data", {
+    gameDetails,
+    boardOrientationRef: boardOrientationRef.current,
+  });
 
   const stablePlayerColor = boardOrientationRef.current;
 
@@ -144,7 +147,6 @@ export function HumanVsHumanV2() {
   const savedGameState = localStorageHelper.getItem(
     LocalStorageKeysEnum["GameState"]
   );
-  console.log("savedGameState", savedGameState);
   const [gameState, setGameState] = useState<IGameState>(
     savedGameState && savedGameState.gameId === gameId
       ? savedGameState
@@ -165,18 +167,33 @@ export function HumanVsHumanV2() {
           activeTimer: null,
           isOpponentConnected: false,
           isTimerRunning: false,
+          moveHighlight: null,
         }
   );
 
   // Persist gameState to localStorage on every change
   useEffect(() => {
     if (gameState && gameId) {
-      localStorageHelper.setItem(LocalStorageKeysEnum["GameState"], {
+      console.log("Persisting game state to localStorage:", {
+        gameState,
+        gameId,
+        currentPlayerColor: playerColor,
+        currentBoardOrientation: boardOrientationRef.current,
+      });
+
+      // Ensure we're not overwriting the player color
+      const persistedState = {
         ...gameState,
         gameId,
-      });
+        playerColor: playerColor, // Preserve the original player color
+      };
+
+      localStorageHelper.setItem(
+        LocalStorageKeysEnum.GameState,
+        persistedState
+      );
     }
-  }, [gameState, gameId]);
+  }, [gameState, gameId, playerColor]);
 
   // Clean up game state in localStorage if gameId changes or on game end
   useEffect(() => {
@@ -199,6 +216,15 @@ export function HumanVsHumanV2() {
     // Only depends on isTimerRunning and winner state
   }, [gameState.isTimerRunning, gameState.winner]);
 
+  // Clean up move highlight timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (moveHighlightTimeoutRef.current) {
+        clearTimeout(moveHighlightTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // WebSocket message handler updates
   useEffect(() => {
     if (!lastMessage?.data) return;
@@ -212,17 +238,30 @@ export function HumanVsHumanV2() {
           const moveMsg = messageData as IWSMoveBroadcast;
           console.log("Received move message:", moveMsg);
 
-          if (moveMsg.fen) {
+          if (moveMsg.fen && moveMsg.lastMove) {
             game.load(moveMsg.fen);
-            // Calculate captured pieces AFTER loading the new FEN
             const newCapturedPieces = calculateCapturedPieces(game.board());
+
+            // Ensure we have a valid lastMove with from and to properties
+            const lastMove =
+              typeof moveMsg.lastMove === "string"
+                ? {
+                    from: moveMsg.lastMove.substring(0, 2) as Square,
+                    to: moveMsg.lastMove.substring(2, 4) as Square,
+                  }
+                : (moveMsg.lastMove as { from: Square; to: Square });
+
+            // Log to debug
+            console.log("Processing move highlight:", lastMove);
+
             setGameState((prev) => ({
               ...prev,
               fen: game.fen(),
               playerTurn: game.turn() as Color,
               moveHistory: game.history(),
-              lastMove: moveMsg.lastMove as { from: Square; to: Square },
-              capturedPieces: newCapturedPieces, // Update captured pieces state
+              lastMove: lastMove,
+              moveHighlight: lastMove, // Ensure this is set correctly
+              capturedPieces: newCapturedPieces,
               selectedSquare: null,
               validMoves: [],
               gameStatus:
@@ -232,6 +271,19 @@ export function HumanVsHumanV2() {
                       game.turn() === "w" ? "white" : "black"
                     } to move`,
             }));
+
+            // Clear any previous timeout and set a new one
+            if (moveHighlightTimeoutRef.current) {
+              clearTimeout(moveHighlightTimeoutRef.current);
+            }
+
+            // Longer timeout (4 seconds)
+            moveHighlightTimeoutRef.current = setTimeout(() => {
+              setGameState((prev) => ({
+                ...prev,
+                moveHighlight: null,
+              }));
+            }, 4000); // Increased to 4 seconds
           }
           break;
         }
@@ -250,22 +302,43 @@ export function HumanVsHumanV2() {
 
         case WebSocketMessageTypeEnum.Joined: {
           const joinedMsg = messageData as IWSJoinedMessage;
+          console.log("Processing joined message:", {
+            joinedMsg,
+            currentGameId: gameId,
+            currentPlayerColor: playerColor,
+            currentBoardOrientation: boardOrientationRef.current,
+          });
+
           if (joinedMsg.gameId === gameId) {
+            // Update game details in localStorage to ensure color persistence
+            if (gameDetails) {
+              const updatedGameDetails = {
+                ...gameDetails,
+                fen: joinedMsg.fen || gameDetails.fen,
+                duration: joinedMsg.duration || gameDetails.duration,
+                // Preserve the original player color from gameDetails
+                playerColor: gameDetails.playerColor,
+              };
+              console.log("Updating game details:", updatedGameDetails);
+              localStorageHelper.setItem(
+                LocalStorageKeysEnum.GameDetails,
+                updatedGameDetails
+              );
+            }
+
             // Start the timer only when the opponent connects
             setGameState((prev) => ({
               ...prev,
               isOpponentConnected: true,
-              isTimerRunning: true, // Start timer now
+              isTimerRunning: true,
               gameStatus:
                 stablePlayerColor === "w"
                   ? "Your turn to move"
                   : "Waiting for white to move",
-              // activeTimer: "w", // No longer needed
             }));
 
             if (joinedMsg.fen) {
               game.load(joinedMsg.fen);
-              // Calculate captured pieces AFTER loading the FEN
               const initialCapturedPieces = calculateCapturedPieces(
                 game.board()
               );
@@ -274,7 +347,7 @@ export function HumanVsHumanV2() {
                 fen: game.fen(),
                 playerTurn: game.turn() as Color,
                 moveHistory: game.history(),
-                capturedPieces: initialCapturedPieces, // Update captured pieces state
+                capturedPieces: initialCapturedPieces,
                 gameStatus:
                   game.turn() === stablePlayerColor
                     ? "Your turn to move"
@@ -350,9 +423,12 @@ export function HumanVsHumanV2() {
             });
 
             if (move && gameId) {
-              // Timer is already running, no need to set isTimerRunning here
+              // Create move data with explicit from/to for the highlight
+              const lastMove = {
+                from: move.from as Square,
+                to: move.to as Square,
+              };
 
-              // Fix the move message by removing the lastMove property
               const moveMessage: IWSMoveMessage = {
                 type: WebSocketMessageTypeEnum.Move,
                 gameId,
@@ -362,24 +438,36 @@ export function HumanVsHumanV2() {
                 move: `${move.from}${move.to}`,
               };
 
-              // Log the message to help with debugging
               console.log("Sending move message:", moveMessage);
               sendMessage(JSON.stringify(moveMessage));
 
-              // Update local state
+              // Update local state with the move highlight
               setGameState((prev) => ({
                 ...prev,
                 fen: game.fen(),
                 playerTurn: game.turn() as Color,
                 moveHistory: game.history(),
-                lastMove: { from: move.from as Square, to: move.to as Square },
+                lastMove: lastMove,
+                moveHighlight: lastMove,
                 selectedSquare: null,
                 validMoves: [],
-                // activeTimer: game.turn() as Color, // No longer needed
                 gameStatus: `Waiting for ${
                   game.turn() === "w" ? "white" : "black"
                 } to move`,
               }));
+
+              // Clear any previous timeout and set a new one
+              if (moveHighlightTimeoutRef.current) {
+                clearTimeout(moveHighlightTimeoutRef.current);
+              }
+
+              // Set a longer timeout (4 seconds)
+              moveHighlightTimeoutRef.current = setTimeout(() => {
+                setGameState((prev) => ({
+                  ...prev,
+                  moveHighlight: null,
+                }));
+              }, 4000); // Increased to 4 seconds
             }
           } catch {
             toast.error("Invalid move!");
@@ -413,7 +501,6 @@ export function HumanVsHumanV2() {
 
     // ALWAYS use the ref for orientation, never use playerColor directly for board display
     const boardOrientation = boardOrientationRef.current;
-    console.log("Rendering board with orientation:", boardOrientation);
 
     const displayRanks =
       boardOrientation === "b" ? [...ranks].reverse() : ranks;
@@ -423,7 +510,7 @@ export function HumanVsHumanV2() {
     const position = game.board();
 
     return (
-      <div className="grid grid-cols-8 gap-0 border-4 border-amber-900/50 rounded-xl overflow-hidden shadow-2xl">
+      <div className="relative grid grid-cols-8 gap-0 border-4 border-amber-900/50 rounded-xl overflow-hidden shadow-2xl">
         {displayRanks.map((rank, rankIndex) =>
           displayFiles.map((file, fileIndex) => {
             const square = `${file}${rank}` as Square;
@@ -440,6 +527,13 @@ export function HumanVsHumanV2() {
               (square === gameState.lastMove.from ||
                 square === gameState.lastMove.to);
 
+            // More prominent highlight colors and effects
+            const isHighlightFrom =
+              gameState.moveHighlight &&
+              square === gameState.moveHighlight.from;
+            const isHighlightTo =
+              gameState.moveHighlight && square === gameState.moveHighlight.to;
+
             return (
               <div
                 key={square}
@@ -454,7 +548,21 @@ export function HumanVsHumanV2() {
                         : "after:content-[''] after:absolute after:inset-0 after:m-auto after:w-3 after:h-3 after:rounded-full after:bg-gray-500/60"
                       : ""
                   }
-                  ${isLastMove ? "bg-yellow-400/30" : ""}
+                  ${
+                    isLastMove && !isHighlightFrom && !isHighlightTo
+                      ? "bg-yellow-400/30"
+                      : ""
+                  }
+                  ${
+                    isHighlightFrom
+                      ? "bg-blue-500/40 ring-4 ring-blue-600 z-20"
+                      : ""
+                  }
+                  ${
+                    isHighlightTo
+                      ? "bg-blue-600/40 ring-4 ring-blue-500 z-20"
+                      : ""
+                  }
                   transition-all duration-200
                 `}
                 onClick={() => handleSquareClick(square)}
@@ -486,6 +594,25 @@ export function HumanVsHumanV2() {
                       draggable={false}
                     />
                   </motion.div>
+                )}
+
+                {/* Enhanced pulsing effect on highlighted squares */}
+                {(isHighlightFrom || isHighlightTo) && (
+                  <motion.div
+                    className={`absolute inset-0 ${
+                      isHighlightFrom ? "bg-blue-400/50" : "bg-blue-500/50"
+                    } z-5`}
+                    initial={{ opacity: 0 }}
+                    animate={{
+                      opacity: [0.5, 0.9, 0.5],
+                      scale: [1, 1.05, 1],
+                    }}
+                    transition={{
+                      duration: 2,
+                      repeat: 2, // More pulses
+                      repeatType: "reverse",
+                    }}
+                  />
                 )}
               </div>
             );
@@ -673,8 +800,8 @@ export function HumanVsHumanV2() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 sm:mb-8">
           <Button
             variant="ghost"
-            onClick={() => navigate("/")}
-            className="text-gray-300 hover:text-white self-start"
+            onClick={() => navigate("/games")}
+            className="text-gray-300 hover:text-black self-start"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Lobby
@@ -739,7 +866,7 @@ export function HumanVsHumanV2() {
                       {gameState.gameStatus}
                     </h2>
                     <Button
-                      onClick={() => navigate("/")}
+                      onClick={() => navigate("/games")}
                       className="bg-gradient-to-r from-amber-500 to-orange-600 text-sm"
                     >
                       Back to Lobby
