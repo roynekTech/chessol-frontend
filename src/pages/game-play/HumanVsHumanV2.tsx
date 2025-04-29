@@ -37,6 +37,7 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
+import ChatDropdown from "../../components/game/ChatDropdown";
 
 interface IGameState {
   fen: string;
@@ -823,7 +824,12 @@ export function HumanVsHumanV2() {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [gameState.playerTurn, gameState.isEnded, handleResign, stablePlayerColor]);
+  }, [
+    gameState.playerTurn,
+    gameState.isEnded,
+    handleResign,
+    stablePlayerColor,
+  ]);
 
   useEffect(() => {
     if (savedGameState && savedGameState.fen) {
@@ -873,14 +879,24 @@ export function HumanVsHumanV2() {
     return () => clearInterval(interval);
   }, [gameState.playerTurn]);
 
+  const [showChat, setShowChat] = useState(false);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-950 to-black text-white">
+      {/* Chat Dropdown Overlay */}
+      <ChatDropdown
+        gameId={String(gameId)}
+        walletAddress={String(walletAddress)}
+        open={showChat}
+        onOpenChange={setShowChat}
+        onUnreadMessage={setUnreadMessagesCount}
+      />
       {/* Background effects */}
       <div className="fixed inset-0 z-0">
         <div className="absolute top-0 right-0 w-96 h-96 bg-amber-600/10 rounded-full filter blur-3xl" />
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-800/10 rounded-full filter blur-3xl" />
       </div>
-
       {/* Content */}
       <div className="relative z-10 container mx-auto px-4 py-4 sm:py-8 flex flex-col min-h-screen">
         {/* Header */}
@@ -893,13 +909,23 @@ export function HumanVsHumanV2() {
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Lobby
           </Button>
-
           <div className="flex items-center gap-2 sm:gap-4 self-end sm:self-auto">
             <Button
               variant="outline"
-              className="gap-1 sm:gap-2 text-black cursor-pointer text-xs sm:text-sm"
+              className="gap-1 sm:gap-2 text-black cursor-pointer text-xs sm:text-sm relative"
               size="sm"
+              onClick={() => setShowChat(true)}
+              aria-label="Open chat"
             >
+              {/* show number of unread messages for user */}
+
+              <span
+                className="absolute -top-2 -right-2 min-w-[20px] h-[20px] flex items-center justify-center bg-red-600 text-white text-xs font-bold rounded-full shadow-lg z-10 px-1.5 border-2 border-white"
+                aria-label={`${unreadMessagesCount} unread messages`}
+              >
+                {unreadMessagesCount}
+              </span>
+
               <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Chat</span>
             </Button>
