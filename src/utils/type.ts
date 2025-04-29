@@ -76,6 +76,7 @@ export interface IWSCreatedMessage {
   isBetting: boolean;
   playerAmount: number | null;
   nonce: string;
+  duration: number; // ms, added per API
 }
 
 export interface IWSErrorMessage {
@@ -103,6 +104,7 @@ export interface IWSJoinedMessage {
   isBetting: boolean;
   betDetails?: IBetDetails;
   nonce: string;
+  duration: number; // ms, added per API
 }
 
 // 3. Make Move
@@ -120,7 +122,7 @@ export interface IWSMoveBroadcast {
   fen: string;
   turn: SideEnum | string;
   valid: boolean;
-  lastMove: IMove;
+  lastMove: IMove | string; // can be object or empty string
   nonce: string;
 }
 
@@ -159,7 +161,7 @@ export interface IWSChatMessage {
 
 export interface IWSChatBroadcast {
   type: WebSocketMessageTypeEnum.Chat;
-  from: string;
+  sender: string; // updated from 'from' to 'sender' per API
   message: string;
 }
 
@@ -186,7 +188,7 @@ export interface IWSResignMessage {
 
 export interface IWSGameEndedMessage {
   type: WebSocketMessageTypeEnum.GameEnded;
-  winner?: string;
+  winner?: "w" | "b" | "draw" | "opponent"; // allow 'opponent' for resign
   reason: string;
 }
 
@@ -211,7 +213,7 @@ export interface IWSPairedMessage {
 
 export interface IWSPairingMessage {
   type: WebSocketMessageTypeEnum.Pairing;
-  status: string;
+  status: string; // e.g. 'searching'
   message: string;
 }
 
