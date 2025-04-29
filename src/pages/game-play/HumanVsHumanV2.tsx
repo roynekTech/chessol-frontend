@@ -39,6 +39,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import ChatDropdown from "../../components/game/ChatDropdown";
 
+// Sound files
+const MOVE_SOUND_SRC = "/move-sound.wav";
+const CAPTURE_SOUND_SRC = "/capture-sound.wav";
+
 interface IGameState {
   fen: string;
   playerTurn: Color;
@@ -65,6 +69,47 @@ export function HumanVsHumanV2() {
   const [game] = useState(new Chess());
   const { sendMessage, lastMessage } = useWebSocketContext();
   const { publicKey } = useWallet();
+
+  // Sound references
+  const moveSoundRef = useRef<HTMLAudioElement | null>(null);
+  const captureSoundRef = useRef<HTMLAudioElement | null>(null);
+
+  // Initialize audio elements
+  useEffect(() => {
+    moveSoundRef.current = new Audio(MOVE_SOUND_SRC);
+    captureSoundRef.current = new Audio(CAPTURE_SOUND_SRC);
+
+    // Preload audio files
+    moveSoundRef.current.load();
+    captureSoundRef.current.load();
+
+    return () => {
+      // Clean up
+      if (moveSoundRef.current) {
+        moveSoundRef.current.pause();
+        moveSoundRef.current = null;
+      }
+      if (captureSoundRef.current) {
+        captureSoundRef.current.pause();
+        captureSoundRef.current = null;
+      }
+    };
+  }, []);
+
+  // Play sound function
+  const playSound = useCallback((isCapture: boolean) => {
+    try {
+      if (isCapture && captureSoundRef.current) {
+        captureSoundRef.current.currentTime = 0;
+        captureSoundRef.current.play();
+      } else if (moveSoundRef.current) {
+        moveSoundRef.current.currentTime = 0;
+        moveSoundRef.current.play();
+      }
+    } catch (error) {
+      console.error("Error playing sound:", error);
+    }
+  }, []);
 
   const moveHighlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -219,6 +264,11 @@ export function HumanVsHumanV2() {
     return { winner, statusText };
   }
 
+  // Helper function to check if a move is a capture
+  const isCaptureMove = (move: { captured?: string }): boolean => {
+    return Boolean(move.captured);
+  };
+
   // Handle WebSocket messages
   useEffect(() => {
     if (!lastMessage?.data) {
@@ -233,7 +283,21 @@ export function HumanVsHumanV2() {
           const moveMsg = messageData as IWSMoveBroadcast;
 
           if (moveMsg.fen && moveMsg.lastMove) {
+            // Load the new position
             game.load(moveMsg.fen);
+
+            // Determine if this was a capture by checking the move history
+            const lastHistoryMove = game.history({ verbose: true }).pop();
+            const wasCapture = lastHistoryMove
+              ? Boolean(lastHistoryMove.captured)
+              : false;
+
+            // Play appropriate sound if it's opponent's move
+            if (game.turn() === stablePlayerColor) {
+              // It's our turn now, meaning opponent just moved
+              playSound(wasCapture);
+            }
+
             const newCapturedPieces = calculateCapturedPieces(game.board());
 
             // Ensure we have a valid lastMove with from and to properties
@@ -393,7 +457,7 @@ export function HumanVsHumanV2() {
     } catch (err) {
       console.error("Failed to parse WebSocket message:", err);
     }
-  }, [lastMessage, game, gameId, playerColor]);
+  }, [lastMessage, game, gameId, playerColor, playSound, stablePlayerColor]);
 
   // Handle square click updates
   const handleSquareClick = useCallback(
@@ -448,6 +512,9 @@ export function HumanVsHumanV2() {
             });
 
             if (move && gameId) {
+              // Play sound for our own move
+              playSound(isCaptureMove(move));
+
               // Create move data with explicit from/to for the highlight
               const lastMove = {
                 from: move.from as Square,
@@ -519,6 +586,7 @@ export function HumanVsHumanV2() {
       sendMessage,
       walletAddress,
       moveHighlightTimeoutRef,
+      playSound,
     ]
   );
 
@@ -836,48 +904,6 @@ export function HumanVsHumanV2() {
       game.load(savedGameState.fen);
     }
   }, []);
-
-  // --- Update timer every second ---
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setGameState((prev) => ({
-        ...prev,
-        ...(gameState.playerTurn === "w"
-          ? {
-              whitePlayerTimerInMilliseconds: Math.max(
-                0,
-                prev.whitePlayerTimerInMilliseconds - 1000
-              ),
-            }
-          : {
-              blackPlayerTimerInMilliseconds: Math.max(
-                0,
-                prev.blackPlayerTimerInMilliseconds - 1000
-              ),
-            }),
-      }));
-
-      // update local storage
-      localStorageHelper.updateItem(LocalStorageKeysEnum.GameState, {
-        ...gameState,
-        ...(gameState.playerTurn === "w"
-          ? {
-              whitePlayerTimerInMilliseconds: Math.max(
-                0,
-                gameState.whitePlayerTimerInMilliseconds - 1000
-              ),
-            }
-          : {
-              blackPlayerTimerInMilliseconds: Math.max(
-                0,
-                gameState.blackPlayerTimerInMilliseconds - 1000
-              ),
-            }),
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [gameState.playerTurn]);
 
   const [showChat, setShowChat] = useState(false);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
