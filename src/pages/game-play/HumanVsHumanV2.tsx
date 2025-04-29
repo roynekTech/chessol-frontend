@@ -88,10 +88,6 @@ export function HumanVsHumanV2() {
   const boardOrientationRef = useRef<"w" | "b">(
     (playerColor as "w" | "b") || "w"
   );
-  console.log("initial data", {
-    gameDetails,
-    boardOrientationRef: boardOrientationRef.current,
-  });
 
   const stablePlayerColor = boardOrientationRef.current;
 
@@ -180,6 +176,48 @@ export function HumanVsHumanV2() {
     }));
   }, [navigate]);
 
+  // --- Helper: Format Game Ended Message ---
+  function processGameEndedMessage(
+    endedMsg: IWSGameEndedMessage,
+    playerColor: Color | null
+  ): { winner: Color | "draw" | null; statusText: string } {
+    let statusText = "Game Over!";
+    let winner: Color | "draw" | null = null;
+
+    if (endedMsg.reason === "checkmate") {
+      winner = endedMsg.winner === "w" ? "w" : "b";
+      statusText = `Checkmate! ${winner === "w" ? "White" : "Black"} wins`;
+    } else if (endedMsg.reason === "resignation") {
+      winner = endedMsg.winner === "w" ? "w" : "b";
+      statusText = `${winner === "w" ? "White" : "Black"} wins by resignation`;
+    } else if (endedMsg.reason === "timeout") {
+      winner = endedMsg.winner === "w" ? "w" : "b";
+      statusText = `${winner === "w" ? "White" : "Black"} wins on time`;
+    } else if (
+      [
+        "draw",
+        "stalemate",
+        "insufficient_material",
+        "threefold_repetition",
+      ].includes(endedMsg.reason)
+    ) {
+      statusText = `Draw by ${endedMsg.reason.replace("_", " ")}!`;
+      winner = "draw";
+    } else {
+      // Fallback: handle 'opponent' or unknown
+      if (endedMsg.winner === "opponent" && playerColor) {
+        winner = playerColor === "w" ? "b" : "w";
+        statusText = `${
+          winner === "w" ? "White" : "Black"
+        } wins by resignation`;
+      } else {
+        winner = endedMsg.winner as Color | "draw" | null;
+        statusText = `Game ended. ${endedMsg.winner} wins. Reason: ${endedMsg.reason}`;
+      }
+    }
+    return { winner, statusText };
+  }
+
   // Handle WebSocket messages
   useEffect(() => {
     if (!lastMessage?.data) {
@@ -244,10 +282,14 @@ export function HumanVsHumanV2() {
 
         case WebSocketMessageTypeEnum.GameEnded: {
           const endedMsg = messageData as IWSGameEndedMessage;
+          const { winner, statusText } = processGameEndedMessage(
+            endedMsg,
+            playerColor
+          );
           setGameState((prev) => ({
             ...prev,
-            winner: endedMsg.winner as Color | "draw" | null,
-            gameStatus: `Game ended. ${endedMsg.reason}`,
+            winner,
+            gameStatus: statusText,
             isEnded: true,
           }));
           break;
@@ -719,7 +761,8 @@ export function HumanVsHumanV2() {
 
   // --- Resign logic ---
   const handleResign = useCallback(() => {
-    if (!gameId || !walletAddress || gameState.isEnded || resignSentRef.current) return;
+    if (!gameId || !walletAddress || gameState.isEnded || resignSentRef.current)
+      return;
     resignSentRef.current = true;
     const resignMsg = {
       type: WebSocketMessageTypeEnum.Resign,
@@ -734,26 +777,44 @@ export function HumanVsHumanV2() {
       gameStatus: "You resigned. Game ended.",
     }));
     setShowResignDialog(false);
-  }, [gameId, walletAddress, gameState.isEnded, sendMessage, stablePlayerColor]);
+  }, [
+    gameId,
+    walletAddress,
+    gameState.isEnded,
+    sendMessage,
+    stablePlayerColor,
+  ]);
 
-  // --- Timer logic: auto-resign at zero ---
+  // --- Timer logic: only decrement current player's timer when game is ongoing ---
   useEffect(() => {
     if (gameState.isEnded) return;
     const interval = setInterval(() => {
       setGameState((prev) => {
         if (prev.isEnded) return prev;
+        // Only decrement the timer for the player whose turn it is
         let w = prev.whitePlayerTimerInMilliseconds;
         let b = prev.blackPlayerTimerInMilliseconds;
-        if (prev.playerTurn === "w") w = Math.max(0, w - 1000);
-        else b = Math.max(0, b - 1000);
+        if (prev.playerTurn === "w") {
+          w = Math.max(0, w - 1000);
+        } else if (prev.playerTurn === "b") {
+          b = Math.max(0, b - 1000);
+        }
         // If timer hits zero and it's our turn, auto-resign
         if (
-          ((prev.playerTurn === stablePlayerColor && ((prev.playerTurn === "w" && w <= 0) || (prev.playerTurn === "b" && b <= 0))) &&
-            !resignSentRef.current &&
-            !prev.isEnded)
+          prev.playerTurn === stablePlayerColor &&
+          ((prev.playerTurn === "w" && w <= 0) ||
+            (prev.playerTurn === "b" && b <= 0)) &&
+          !resignSentRef.current &&
+          !prev.isEnded
         ) {
           handleResign();
         }
+        // Update localStorage here as well
+        localStorageHelper.updateItem(LocalStorageKeysEnum.GameState, {
+          ...prev,
+          whitePlayerTimerInMilliseconds: w,
+          blackPlayerTimerInMilliseconds: b,
+        });
         return {
           ...prev,
           whitePlayerTimerInMilliseconds: w,
@@ -770,19 +831,23 @@ export function HumanVsHumanV2() {
     }
   }, []);
 
-  // Update timer every second
+  // --- Update timer every second ---
   useEffect(() => {
     const interval = setInterval(() => {
       setGameState((prev) => ({
         ...prev,
         ...(gameState.playerTurn === "w"
           ? {
-              whitePlayerTimerInMilliseconds:
-                prev.whitePlayerTimerInMilliseconds - 1000,
+              whitePlayerTimerInMilliseconds: Math.max(
+                0,
+                prev.whitePlayerTimerInMilliseconds - 1000
+              ),
             }
           : {
-              blackPlayerTimerInMilliseconds:
-                prev.blackPlayerTimerInMilliseconds - 1000,
+              blackPlayerTimerInMilliseconds: Math.max(
+                0,
+                prev.blackPlayerTimerInMilliseconds - 1000
+              ),
             }),
       }));
 
@@ -791,12 +856,16 @@ export function HumanVsHumanV2() {
         ...gameState,
         ...(gameState.playerTurn === "w"
           ? {
-              whitePlayerTimerInMilliseconds:
-                gameState.whitePlayerTimerInMilliseconds - 1000,
+              whitePlayerTimerInMilliseconds: Math.max(
+                0,
+                gameState.whitePlayerTimerInMilliseconds - 1000
+              ),
             }
           : {
-              blackPlayerTimerInMilliseconds:
-                gameState.blackPlayerTimerInMilliseconds - 1000,
+              blackPlayerTimerInMilliseconds: Math.max(
+                0,
+                gameState.blackPlayerTimerInMilliseconds - 1000
+              ),
             }),
       });
     }, 1000);
@@ -834,7 +903,10 @@ export function HumanVsHumanV2() {
               <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Chat</span>
             </Button>
-            <AlertDialog open={showResignDialog} onOpenChange={setShowResignDialog}>
+            <AlertDialog
+              open={showResignDialog}
+              onOpenChange={setShowResignDialog}
+            >
               <AlertDialogTrigger asChild>
                 <Button
                   variant="destructive"
@@ -850,7 +922,8 @@ export function HumanVsHumanV2() {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Confirm Resignation</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Are you sure you want to resign? This will end the game and your opponent will be declared the winner.
+                    Are you sure you want to resign? This will end the game and
+                    your opponent will be declared the winner.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
