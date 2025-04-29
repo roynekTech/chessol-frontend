@@ -43,11 +43,6 @@ interface IGameState {
   isOngoing: boolean;
   isStarted: boolean;
   gameStatus: string;
-  timers: {
-    w: number;
-    b: number;
-  };
-  activeTimer: Color | null;
   moveHighlight: { from: Square; to: Square } | null;
   whitePlayerTimerInMilliseconds: number;
   blackPlayerTimerInMilliseconds: number;
@@ -106,9 +101,8 @@ export function HumanVsHumanV2() {
           lastMove: null,
           winner: null,
           gameStatus: "Waiting for opponent...",
-          activeTimer: null,
-          isOpponentConnected: false,
-          isTimerRunning: false,
+          isStarted: true,
+          isOngoing: true,
           moveHighlight: null,
           whitePlayerTimerInMilliseconds: gameDetails?.duration,
           blackPlayerTimerInMilliseconds: gameDetails?.duration,
@@ -118,13 +112,6 @@ export function HumanVsHumanV2() {
   // Persist gameState to localStorage on every change
   useEffect(() => {
     if (gameState && gameId) {
-      console.log("Persisting game state to localStorage:", {
-        gameState,
-        gameId,
-        currentPlayerColor: playerColor,
-        currentBoardOrientation: boardOrientationRef.current,
-      });
-
       // Ensure we're not overwriting the player color
       const persistedState = {
         ...gameState,
@@ -168,12 +155,12 @@ export function HumanVsHumanV2() {
       walletAddress: walletAddress!,
     };
 
-    // sleep for 1 seconds so that websocket can initiate
+    // sleep for 2 seconds so that websocket can initiate
     setTimeout(() => {
       if (walletAddress && gameId) {
         sendMessage(JSON.stringify(reconnectMessage));
       }
-    }, 1000);
+    }, 2000);
 
     // Update UI to show reconnection attempt
     setGameState((prev) => ({
@@ -190,28 +177,25 @@ export function HumanVsHumanV2() {
 
     try {
       const messageData = JSON.parse(lastMessage.data);
-      console.log("Received WebSocket message:", messageData);
 
       switch (messageData.type) {
         case WebSocketMessageTypeEnum.Move: {
           const moveMsg = messageData as IWSMoveBroadcast;
-          console.log("Received move message:", moveMsg);
 
           if (moveMsg.fen && moveMsg.lastMove) {
             game.load(moveMsg.fen);
             const newCapturedPieces = calculateCapturedPieces(game.board());
 
             // Ensure we have a valid lastMove with from and to properties
-            const lastMove =
-              typeof moveMsg.lastMove === "string"
-                ? {
-                    from: moveMsg.lastMove.substring(0, 2) as Square,
-                    to: moveMsg.lastMove.substring(2, 4) as Square,
-                  }
-                : (moveMsg.lastMove as { from: Square; to: Square });
-
-            // Log to debug
-            console.log("Processing move highlight:", lastMove);
+            let lastMove: { from: Square; to: Square } | null = null;
+            if (typeof moveMsg.lastMove === "string") {
+              lastMove = {
+                from: moveMsg.lastMove.substring(0, 2) as Square,
+                to: moveMsg.lastMove.substring(2, 4) as Square,
+              };
+            } else {
+              lastMove = moveMsg.lastMove as { from: Square; to: Square };
+            }
 
             setGameState((prev) => ({
               ...prev,
@@ -253,43 +237,30 @@ export function HumanVsHumanV2() {
             ...prev,
             winner: endedMsg.winner as Color | "draw" | null,
             gameStatus: `Game ended. ${endedMsg.reason}`,
-            isTimerRunning: false, // Stop timer on game end
-            // activeTimer: null, // No longer needed
+            isEnded: true,
           }));
           break;
         }
 
         case WebSocketMessageTypeEnum.Joined: {
           const joinedMsg = messageData as IWSJoinedMessage;
-          console.log("Processing joined message:", {
-            joinedMsg,
-            currentGameId: gameId,
-            currentPlayerColor: playerColor,
-            currentBoardOrientation: boardOrientationRef.current,
-          });
 
           if (joinedMsg.gameId === gameId) {
-            // Update game details in localStorage to ensure color persistence
             if (gameDetails) {
               const updatedGameDetails = {
                 ...gameDetails,
                 fen: joinedMsg.fen || gameDetails.fen,
                 duration: joinedMsg.duration || gameDetails.duration,
-                // Preserve the original player color from gameDetails
                 playerColor: gameDetails.playerColor,
               };
-              console.log("Updating game details:", updatedGameDetails);
               localStorageHelper.setItem(
                 LocalStorageKeysEnum.GameDetails,
                 updatedGameDetails
               );
             }
 
-            // Start the timer only when the opponent connects
             setGameState((prev) => ({
               ...prev,
-              isOpponentConnected: true,
-              isTimerRunning: true,
               gameStatus:
                 stablePlayerColor === "w"
                   ? "Your turn to move"
@@ -321,7 +292,6 @@ export function HumanVsHumanV2() {
 
         case WebSocketMessageTypeEnum.Reconnected: {
           const reconnectedMsg = messageData as IWSReconnectedMessage;
-          console.log("Successfully reconnected to game:", reconnectedMsg);
 
           // Load the returned game state
           if (reconnectedMsg.fen) {
@@ -356,7 +326,6 @@ export function HumanVsHumanV2() {
                 fen: reconnectedMsg.fen,
               });
             }
-            console.log("Successfully reconnected to the game!");
           }
           break;
         }
@@ -375,14 +344,16 @@ export function HumanVsHumanV2() {
   // Handle square click updates
   const handleSquareClick = useCallback(
     (square: Square) => {
+      // check game is not ended
+      if (gameState.isEnded) {
+        toast.info("Game is ended, proceed to creating a new game");
+        return;
+      }
+
       // Early validation - check if it's the player's turn
       const isPlayersTurn = stablePlayerColor === gameState.playerTurn;
 
-      // Block any interaction if:
-      // 1. Game is over (winner exists)
-      // 2. Chess.js reports game over
-      // 3. No valid player color assigned
-      // 4. It's not the player's turn
+      // check if game is active
       if (gameState.winner || game.isGameOver() || !stablePlayerColor) {
         return;
       }
