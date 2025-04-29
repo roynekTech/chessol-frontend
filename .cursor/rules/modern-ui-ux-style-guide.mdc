@@ -1,7 +1,7 @@
 ---
-description: Anytime there is a need to create / fix / improve the ui / design of any application 
+description: 
 globs: 
-alwaysApply: false
+alwaysApply: true
 ---
 
 # Modern UI/UX Design Style Guide

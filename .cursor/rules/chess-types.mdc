@@ -1,7 +1,7 @@
 ---
-description: when user want's to do anything with api or websocket or typescript types generally 
+description: 
 globs: 
-alwaysApply: false
+alwaysApply: true
 ---
 # TypeScript Types and Enums for Chess WebSocket
 

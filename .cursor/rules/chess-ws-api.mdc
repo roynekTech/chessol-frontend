@@ -1,7 +1,7 @@
 ---
-description: When user wants to implement / modify / fix web socket connection in the app
+description: 
 globs: 
-alwaysApply: false
+alwaysApply: true
 ---
 # Chess WebSocket API Protocol
 

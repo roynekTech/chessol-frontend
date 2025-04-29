@@ -1,0 +1,769 @@
+import { useCallback, useEffect, useState, useRef } from "react";
+import { Chess, Square, Color, PieceSymbol } from "chess.js";
+import { motion, AnimatePresence } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft, Trophy, MessageCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { useWebSocketContext } from "../../context/useWebSocketContext";
+import { localStorageHelper } from "../../utils/localStorageHelper";
+import {
+  LocalStorageKeysEnum,
+  IGameDetailsLocalStorage,
+  WebSocketMessageTypeEnum,
+  IWSErrorMessage,
+  IWSGameEndedMessage,
+  IWSMoveBroadcast,
+  IWSMoveMessage,
+  IWSJoinedMessage,
+} from "../../utils/type";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { formatTime } from "../../utils/chessUtils";
+import { useWallet } from "@solana/wallet-adapter-react";
+
+// Types
+interface ICapturedPiece {
+  type: PieceSymbol;
+  color: Color;
+}
+
+interface IGameState {
+  fen: string;
+  playerTurn: Color;
+  selectedSquare: Square | null;
+  validMoves: Square[];
+  moveHistory: string[];
+  capturedPieces: {
+    w: ICapturedPiece[];
+    b: ICapturedPiece[];
+  };
+  lastMove: { from: Square; to: Square } | null;
+  winner: Color | "draw" | null;
+  gameStatus: string;
+  timers: {
+    w: number;
+    b: number;
+  };
+  activeTimer: Color | null;
+  isOpponentConnected: boolean;
+  isTimerRunning: boolean;
+}
+
+// --- Utility Function ---
+const calculateCapturedPieces = (
+  board: ReturnType<Chess["board"]>
+): { w: ICapturedPiece[]; b: ICapturedPiece[] } => {
+  // Standard piece counts at the start of a game
+  const startingCounts: Record<Color, Record<PieceSymbol, number>> = {
+    w: { p: 8, n: 2, b: 2, r: 2, q: 1, k: 1 },
+    b: { p: 8, n: 2, b: 2, r: 2, q: 1, k: 1 },
+  };
+
+  // Current piece counts on the board
+  const currentCounts: Record<Color, Record<PieceSymbol, number>> = {
+    w: { p: 0, n: 0, b: 0, r: 0, q: 0, k: 0 },
+    b: { p: 0, n: 0, b: 0, r: 0, q: 0, k: 0 },
+  };
+
+  // Count pieces currently on the board
+  for (const row of board) {
+    for (const square of row) {
+      if (square) {
+        currentCounts[square.color][square.type]++;
+      }
+    }
+  }
+
+  const captured: { w: ICapturedPiece[]; b: ICapturedPiece[] } = {
+    w: [],
+    b: [],
+  };
+
+  // Determine captured pieces by comparing starting and current counts
+  for (const color of ["w", "b"] as Color[]) {
+    for (const type of ["p", "n", "b", "r", "q"] as PieceSymbol[]) {
+      const diff = startingCounts[color][type] - currentCounts[color][type];
+      if (diff > 0) {
+        // The opponent captured 'diff' pieces of this type and color
+        const capturingColor = color === "w" ? "b" : "w";
+        for (let i = 0; i < diff; i++) {
+          captured[capturingColor].push({ type, color });
+        }
+      }
+    }
+  }
+
+  // Sort captured pieces (optional, e.g., by value)
+  const pieceValues: Record<PieceSymbol, number> = {
+    p: 1,
+    n: 3,
+    b: 3,
+    r: 5,
+    q: 9,
+    k: 0,
+  };
+  captured.w.sort((a, b) => pieceValues[b.type] - pieceValues[a.type]);
+  captured.b.sort((a, b) => pieceValues[b.type] - pieceValues[a.type]);
+
+  return captured;
+};
+// --- End Utility Function ---
+
+export function HumanVsHumanV2() {
+  const navigate = useNavigate();
+  const [game] = useState(new Chess());
+  const { sendMessage, lastMessage } = useWebSocketContext();
+  const { publicKey } = useWallet();
+  const walletAddress = publicKey?.toBase58() || "";
+
+  // Get game details from localStorage, including duration
+  const gameDetails = localStorageHelper.getItem(
+    LocalStorageKeysEnum.GameDetails
+  ) as IGameDetailsLocalStorage | null;
+
+  const gameId = gameDetails?.gameId || null;
+  const playerColor = (gameDetails?.playerColor || null) as Color | null;
+  // Get duration in seconds (default to 600s = 10min if not found)
+  const initialDurationSec = gameDetails?.duration
+    ? gameDetails.duration / 1000
+    : 600;
+
+  const boardOrientationRef = useRef<"w" | "b">(
+    (playerColor as "w" | "b") || "w"
+  );
+
+  useEffect(() => {
+    console.log("Board orientation set to:", boardOrientationRef.current);
+    console.log("Player color from localStorage:", playerColor);
+    console.log("Initial Duration (sec):", initialDurationSec);
+  }, []);
+
+  const stablePlayerColor = boardOrientationRef.current;
+
+  // On mount, try to load saved game state
+  const savedGameState = localStorageHelper.getItem(
+    LocalStorageKeysEnum["GameState"]
+  );
+  console.log("savedGameState", savedGameState);
+  const [gameState, setGameState] = useState<IGameState>(
+    savedGameState && savedGameState.gameId === gameId
+      ? savedGameState
+      : {
+          fen: gameDetails?.fen || game.fen(),
+          playerTurn: "w",
+          selectedSquare: null,
+          validMoves: [],
+          moveHistory: [],
+          capturedPieces: { w: [], b: [] },
+          lastMove: null,
+          winner: null,
+          gameStatus: "Waiting for opponent...",
+          timers: {
+            w: initialDurationSec,
+            b: initialDurationSec,
+          },
+          activeTimer: null,
+          isOpponentConnected: false,
+          isTimerRunning: false,
+        }
+  );
+
+  // Persist gameState to localStorage on every change
+  useEffect(() => {
+    if (gameState && gameId) {
+      localStorageHelper.setItem(LocalStorageKeysEnum["GameState"], {
+        ...gameState,
+        gameId,
+      });
+    }
+  }, [gameState, gameId]);
+
+  // Clean up game state in localStorage if gameId changes or on game end
+  useEffect(() => {
+    return () => {
+      localStorageHelper.deleteItem(LocalStorageKeysEnum["GameState"]);
+    };
+  }, [gameId]);
+
+  // Timer effect: Decrement BOTH timers simultaneously
+  useEffect(() => {
+    // Only run the timer if it's supposed to be running and game isn't over
+    if (!gameState.isTimerRunning || gameState.winner) return;
+
+    const interval = setInterval(() => {
+      // Call updateTimer (it doesn't take arguments anymore)
+      updateTimer();
+    }, 1000);
+
+    return () => clearInterval(interval);
+    // Only depends on isTimerRunning and winner state
+  }, [gameState.isTimerRunning, gameState.winner]);
+
+  // WebSocket message handler updates
+  useEffect(() => {
+    if (!lastMessage?.data) return;
+
+    try {
+      const messageData = JSON.parse(lastMessage.data);
+      console.log("Received WebSocket message:", messageData);
+
+      switch (messageData.type) {
+        case WebSocketMessageTypeEnum.Move: {
+          const moveMsg = messageData as IWSMoveBroadcast;
+          console.log("Received move message:", moveMsg);
+
+          if (moveMsg.fen) {
+            game.load(moveMsg.fen);
+            // Calculate captured pieces AFTER loading the new FEN
+            const newCapturedPieces = calculateCapturedPieces(game.board());
+            setGameState((prev) => ({
+              ...prev,
+              fen: game.fen(),
+              playerTurn: game.turn() as Color,
+              moveHistory: game.history(),
+              lastMove: moveMsg.lastMove as { from: Square; to: Square },
+              capturedPieces: newCapturedPieces, // Update captured pieces state
+              selectedSquare: null,
+              validMoves: [],
+              gameStatus:
+                game.turn() === stablePlayerColor
+                  ? "Your turn to move"
+                  : `Waiting for ${
+                      game.turn() === "w" ? "white" : "black"
+                    } to move`,
+            }));
+          }
+          break;
+        }
+
+        case WebSocketMessageTypeEnum.GameEnded: {
+          const endedMsg = messageData as IWSGameEndedMessage;
+          setGameState((prev) => ({
+            ...prev,
+            winner: endedMsg.winner as Color | "draw" | null,
+            gameStatus: `Game ended. ${endedMsg.reason}`,
+            isTimerRunning: false, // Stop timer on game end
+            // activeTimer: null, // No longer needed
+          }));
+          break;
+        }
+
+        case WebSocketMessageTypeEnum.Joined: {
+          const joinedMsg = messageData as IWSJoinedMessage;
+          if (joinedMsg.gameId === gameId) {
+            // Start the timer only when the opponent connects
+            setGameState((prev) => ({
+              ...prev,
+              isOpponentConnected: true,
+              isTimerRunning: true, // Start timer now
+              gameStatus:
+                stablePlayerColor === "w"
+                  ? "Your turn to move"
+                  : "Waiting for white to move",
+              // activeTimer: "w", // No longer needed
+            }));
+
+            if (joinedMsg.fen) {
+              game.load(joinedMsg.fen);
+              // Calculate captured pieces AFTER loading the FEN
+              const initialCapturedPieces = calculateCapturedPieces(
+                game.board()
+              );
+              setGameState((prev) => ({
+                ...prev,
+                fen: game.fen(),
+                playerTurn: game.turn() as Color,
+                moveHistory: game.history(),
+                capturedPieces: initialCapturedPieces, // Update captured pieces state
+                gameStatus:
+                  game.turn() === stablePlayerColor
+                    ? "Your turn to move"
+                    : `Waiting for ${
+                        game.turn() === "w" ? "white" : "black"
+                      } to move`,
+              }));
+            }
+          }
+          break;
+        }
+
+        case WebSocketMessageTypeEnum.Error: {
+          const errorMsg = messageData as IWSErrorMessage;
+          toast.error(`Game Error: ${errorMsg.message}`);
+          break;
+        }
+      }
+    } catch (err) {
+      console.error("Failed to parse WebSocket message:", err);
+    }
+  }, [lastMessage, game, gameId, stablePlayerColor]);
+
+  // Handle square click updates
+  const handleSquareClick = useCallback(
+    (square: Square) => {
+      console.log(
+        "Square clicked:",
+        square,
+        "Stable player color:",
+        stablePlayerColor,
+        "Game turn:",
+        gameState.playerTurn
+      );
+
+      // Check if it's the player's turn using stable color
+      if (
+        gameState.winner ||
+        game.isGameOver() ||
+        !stablePlayerColor ||
+        gameState.playerTurn !== stablePlayerColor
+      ) {
+        if (
+          gameState.playerTurn !== stablePlayerColor &&
+          gameState.isOpponentConnected
+        ) {
+          toast.error("Wait for your turn!");
+        }
+        return;
+      }
+
+      if (!gameState.selectedSquare) {
+        const piece = game.get(square);
+        if (piece?.color === stablePlayerColor) {
+          const legalMoves = game.moves({
+            square,
+            verbose: true,
+          });
+          setGameState((prev) => ({
+            ...prev,
+            selectedSquare: square,
+            validMoves: legalMoves.map((m) => m.to as Square),
+          }));
+        }
+      } else {
+        if (gameState.validMoves.includes(square)) {
+          try {
+            const initialFen = game.fen();
+            const move = game.move({
+              from: gameState.selectedSquare,
+              to: square,
+              promotion: "q", // Always promote to queen for simplicity
+            });
+
+            if (move && gameId) {
+              // Timer is already running, no need to set isTimerRunning here
+
+              // Fix the move message by removing the lastMove property
+              const moveMessage: IWSMoveMessage = {
+                type: WebSocketMessageTypeEnum.Move,
+                gameId,
+                fen: game.fen(),
+                initialFen,
+                walletAddress,
+                move: `${move.from}${move.to}`,
+              };
+
+              // Log the message to help with debugging
+              console.log("Sending move message:", moveMessage);
+              sendMessage(JSON.stringify(moveMessage));
+
+              // Update local state
+              setGameState((prev) => ({
+                ...prev,
+                fen: game.fen(),
+                playerTurn: game.turn() as Color,
+                moveHistory: game.history(),
+                lastMove: { from: move.from as Square, to: move.to as Square },
+                selectedSquare: null,
+                validMoves: [],
+                // activeTimer: game.turn() as Color, // No longer needed
+                gameStatus: `Waiting for ${
+                  game.turn() === "w" ? "white" : "black"
+                } to move`,
+              }));
+            }
+          } catch {
+            toast.error("Invalid move!");
+          }
+        }
+        setGameState((prev) => ({
+          ...prev,
+          selectedSquare: null,
+          validMoves: [],
+        }));
+      }
+    },
+    // Remove isTimerRunning from dependencies as it's handled by the Joined message now
+    [
+      game,
+      gameState.selectedSquare,
+      gameState.validMoves,
+      gameState.winner,
+      gameState.playerTurn,
+      gameState.isOpponentConnected,
+      stablePlayerColor,
+      gameId,
+      sendMessage,
+    ]
+  );
+
+  // Render chess board
+  const renderBoard = () => {
+    const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
+    const ranks = ["8", "7", "6", "5", "4", "3", "2", "1"];
+
+    // ALWAYS use the ref for orientation, never use playerColor directly for board display
+    const boardOrientation = boardOrientationRef.current;
+    console.log("Rendering board with orientation:", boardOrientation);
+
+    const displayRanks =
+      boardOrientation === "b" ? [...ranks].reverse() : ranks;
+    const displayFiles =
+      boardOrientation === "b" ? [...files].reverse() : files;
+
+    const position = game.board();
+
+    return (
+      <div className="grid grid-cols-8 gap-0 border-4 border-amber-900/50 rounded-xl overflow-hidden shadow-2xl">
+        {displayRanks.map((rank, rankIndex) =>
+          displayFiles.map((file, fileIndex) => {
+            const square = `${file}${rank}` as Square;
+            // Use the stable orientation for position mapping too
+            const piece =
+              position[boardOrientation === "b" ? 7 - rankIndex : rankIndex][
+                boardOrientation === "b" ? 7 - fileIndex : fileIndex
+              ];
+            const isLight = (rankIndex + fileIndex) % 2 === 0;
+            const isSelected = square === gameState.selectedSquare;
+            const isValidMove = gameState.validMoves.includes(square);
+            const isLastMove =
+              gameState.lastMove &&
+              (square === gameState.lastMove.from ||
+                square === gameState.lastMove.to);
+
+            return (
+              <div
+                key={square}
+                className={`
+                  relative aspect-square cursor-pointer
+                  ${isLight ? "bg-amber-100" : "bg-amber-800"}
+                  ${isSelected ? "ring-4 ring-yellow-400 z-10" : ""}
+                  ${
+                    isValidMove
+                      ? piece
+                        ? "ring-4 ring-red-500 z-10"
+                        : "after:content-[''] after:absolute after:inset-0 after:m-auto after:w-3 after:h-3 after:rounded-full after:bg-gray-500/60"
+                      : ""
+                  }
+                  ${isLastMove ? "bg-yellow-400/30" : ""}
+                  transition-all duration-200
+                `}
+                onClick={() => handleSquareClick(square)}
+              >
+                {/* Coordinates */}
+                {fileIndex === 0 && (
+                  <span className="absolute left-1 top-0 text-xs font-bold opacity-60">
+                    {rank}
+                  </span>
+                )}
+                {rankIndex === 7 && (
+                  <span className="absolute right-1 bottom-0 text-xs font-bold opacity-60">
+                    {file}
+                  </span>
+                )}
+
+                {/* Piece */}
+                {piece && (
+                  <motion.div
+                    key={`${piece.color}${piece.type}-${square}`}
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="absolute inset-0 flex items-center justify-center"
+                  >
+                    <img
+                      src={`https://www.chess.com/chess-themes/pieces/neo/150/${piece.color}${piece.type}.png`}
+                      alt={`${piece.color}${piece.type}`}
+                      className="w-4/5 h-4/5 object-contain"
+                      draggable={false}
+                    />
+                  </motion.div>
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
+    );
+  };
+
+  // Render player panel
+  const PlayerPanel = ({ color }: { color: Color }) => {
+    // Use the stable orientation for player identity as well
+    const isPlayer = stablePlayerColor === color;
+    const player = {
+      name: isPlayer ? "You" : "Opponent",
+    };
+    const isCurrentTurn = gameState.playerTurn === color;
+    const timeRemaining = gameState.timers[color];
+    const capturedPieces = gameState.capturedPieces[color];
+
+    // Use the stable orientation for panel positioning
+    const shouldBeTop =
+      stablePlayerColor === "w" ? color === "b" : color === "w";
+
+    return (
+      <div
+        className={`
+          bg-gray-900/60 backdrop-blur-sm rounded-xl p-3 sm:p-4
+          border ${
+            isCurrentTurn ? "border-amber-500/50" : "border-amber-900/20"
+          } shadow-lg
+          ${shouldBeTop ? "mb-4 sm:mb-8" : "mt-4 sm:mt-8"}
+        `}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2 sm:space-x-3">
+            <Avatar
+              className={
+                isPlayer
+                  ? "ring-2 ring-amber-500 w-8 h-8 sm:w-10 sm:h-10"
+                  : "w-8 h-8 sm:w-10 sm:h-10"
+              }
+            >
+              <AvatarFallback
+                className={
+                  isPlayer
+                    ? "bg-amber-700 text-sm sm:text-base"
+                    : "bg-gray-700 text-sm sm:text-base"
+                }
+              >
+                {player.name[0]}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <h3 className="font-semibold text-white flex items-center flex-wrap gap-1 sm:gap-2 text-sm sm:text-base">
+                {player.name}
+                {isPlayer && (
+                  <span className="text-xs bg-amber-600/30 border border-amber-600/50 px-1 py-0.5 sm:px-2 sm:py-0.5 rounded-full">
+                    You
+                  </span>
+                )}
+                {isCurrentTurn && (
+                  <span className="text-xs bg-green-600/30 border border-green-600/50 px-1 py-0.5 sm:px-2 sm:py-0.5 rounded-full">
+                    {isPlayer ? "Your Turn" : "Turn"}
+                  </span>
+                )}
+              </h3>
+              <p className="text-xs sm:text-sm text-gray-400">
+                {color === "w" ? "White" : "Black"}
+              </p>
+            </div>
+          </div>
+          <div
+            className={`text-lg sm:text-2xl font-mono font-bold ${
+              timeRemaining <= 30 ? "text-red-500" : "text-white"
+            }`}
+          >
+            {formatTime(timeRemaining)}
+          </div>
+        </div>
+
+        {/* Captured Pieces - made more responsive */}
+        {capturedPieces.length > 0 && (
+          <div className="mt-2 sm:mt-3 flex flex-wrap gap-1">
+            {capturedPieces.map((piece, index) => (
+              <motion.div
+                key={`${piece.type}-${index}`}
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 0.8 }}
+                className="w-5 h-5 sm:w-6 sm:h-6"
+              >
+                <img
+                  src={`https://www.chess.com/chess-themes/pieces/neo/150/${piece.color}${piece.type}.png`}
+                  alt={`${piece.color}${piece.type}`}
+                  className="w-full h-full object-contain opacity-75"
+                />
+              </motion.div>
+            ))}
+          </div>
+        )}
+
+        {isCurrentTurn && (
+          <div className="mt-2 h-1 w-full bg-amber-500/30 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-amber-500 animate-pulse"
+              style={{ width: "100%" }}
+            />
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // updateTimer function: Decrement both timers and check for timeout
+  const updateTimer = () => {
+    setGameState((prev) => {
+      if (!prev.isTimerRunning || prev.winner) {
+        return prev; // Don't update if timer stopped or game ended
+      }
+
+      const newTimeW = Math.max(0, prev.timers.w - 1);
+      const newTimeB = Math.max(0, prev.timers.b - 1);
+      let winner: Color | "draw" | null = null;
+      let reason = "";
+
+      // Check if timeout occurred
+      if (newTimeW === 0 && newTimeB > 0) {
+        // Check B still has time
+        winner = "b"; // Black wins if white times out
+        reason = "White ran out of time";
+      } else if (newTimeB === 0 && newTimeW > 0) {
+        // Check W still has time
+        winner = "w"; // White wins if black times out
+        reason = "Black ran out of time";
+      } else if (newTimeW === 0 && newTimeB === 0) {
+        // If both timers reach 0 simultaneously, it's a draw
+        winner = "draw";
+        reason = "Both players ran out of time";
+      }
+
+      // If a timeout occurred, send message and update state
+      if (winner && gameId) {
+        const timeoutMessage = {
+          type: WebSocketMessageTypeEnum.GameEnded,
+          gameId,
+          winner,
+          reason,
+        };
+        sendMessage(JSON.stringify(timeoutMessage));
+        // Update local state immediately to show timeout
+        return {
+          ...prev,
+          timers: { w: newTimeW, b: newTimeB },
+          winner,
+          gameStatus: reason,
+          isTimerRunning: false, // Stop the timer
+        };
+      }
+
+      // Otherwise, just update the timers
+      return {
+        ...prev,
+        timers: { w: newTimeW, b: newTimeB },
+      };
+    });
+  };
+
+  useEffect(() => {
+    if (savedGameState && savedGameState.fen) {
+      game.load(savedGameState.fen);
+    }
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-950 to-black text-white">
+      {/* Background effects */}
+      <div className="fixed inset-0 z-0">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-amber-600/10 rounded-full filter blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-800/10 rounded-full filter blur-3xl" />
+      </div>
+
+      {/* Content */}
+      <div className="relative z-10 container mx-auto px-4 py-4 sm:py-8 flex flex-col min-h-screen">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 sm:mb-8">
+          <Button
+            variant="ghost"
+            onClick={() => navigate("/")}
+            className="text-gray-300 hover:text-white self-start"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Lobby
+          </Button>
+
+          <div className="flex items-center gap-2 sm:gap-4 self-end sm:self-auto">
+            <Button
+              variant="outline"
+              className="gap-1 sm:gap-2 text-black cursor-pointer text-xs sm:text-sm"
+              size="sm"
+            >
+              <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">Chat</span>
+            </Button>
+            <Button
+              variant="destructive"
+              className="gap-1 sm:gap-2 cursor-pointer text-xs sm:text-sm"
+              size="sm"
+            >
+              Resign
+            </Button>
+          </div>
+        </div>
+
+        {/* Game Status */}
+        <div className="text-center mb-4 sm:mb-8">
+          <span
+            className={`
+              px-3 py-1 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-medium
+              ${
+                gameState.winner
+                  ? "bg-green-600/80"
+                  : gameState.gameStatus.includes("turn")
+                  ? "bg-amber-600/80"
+                  : gameState.gameStatus.includes("Check")
+                  ? "bg-red-600/80"
+                  : "bg-gray-800/80"
+              }
+            `}
+          >
+            {gameState.gameStatus}
+          </span>
+        </div>
+
+        {/* Main Game Area */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] gap-4 sm:gap-8 items-start flex-grow">
+          <PlayerPanel color="b" />
+
+          {/* Chess Board */}
+          <div className="relative w-full max-w-md sm:max-w-lg md:max-w-xl mx-auto lg:w-auto">
+            <AnimatePresence>
+              {gameState.winner && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  className="absolute inset-0 flex items-center justify-center z-30 bg-black/80 rounded-xl backdrop-blur-sm"
+                >
+                  <div className="text-center p-4 sm:p-8">
+                    <Trophy className="w-12 h-12 sm:w-16 sm:h-16 text-yellow-400 mx-auto mb-3 sm:mb-4" />
+                    <h2 className="text-lg sm:text-2xl font-bold mb-3 sm:mb-4">
+                      {gameState.gameStatus}
+                    </h2>
+                    <Button
+                      onClick={() => navigate("/")}
+                      className="bg-gradient-to-r from-amber-500 to-orange-600 text-sm"
+                    >
+                      Back to Lobby
+                    </Button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {renderBoard()}
+
+            {/* FEN Display */}
+            <div className="mt-2 sm:mt-4 text-xs text-gray-400 text-center break-all">
+              <span className="font-mono bg-black/40 p-1 sm:p-2 rounded select-all">
+                {gameState.fen}
+              </span>
+            </div>
+          </div>
+
+          <PlayerPanel color="w" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default HumanVsHumanV2;

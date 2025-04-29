@@ -251,6 +251,7 @@ export type TWebSocketOutgoing =
 // ---- Localstorage items ----
 export enum LocalStorageKeysEnum {
   GameDetails = "gameDetails",
+  GameState = "gameState",
 }
 
 export interface IGameDetailsLocalStorage {
@@ -259,6 +260,7 @@ export interface IGameDetailsLocalStorage {
   isBetting: boolean;
   playerColor?: SideEnum | string;
   isJoined: boolean;
+  duration?: number; // Store duration in milliseconds
 }
 
 export interface IGetBestMovePayload {

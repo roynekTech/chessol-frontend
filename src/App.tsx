@@ -17,8 +17,8 @@ import "@solana/wallet-adapter-react-ui/styles.css";
 import { useMemo } from "react";
 import { Lobby } from "./pages/Lobby";
 import { WebSocketProvider } from "./context/WebSocketContext";
-import HumanVsHuman from "./pages/game-play/HumanVsHuman";
 import HumanVsComputer from "./pages/game-play/HumanVsComputer";
+import HumanVsHumanV2 from "./pages/game-play/HumanVsHumanV2";
 
 const queryClient = new QueryClient();
 
@@ -42,7 +42,7 @@ function App() {
                   <Route path="/games" element={<OngoingGames />} />
                   <Route path="/game/:id" element={<ChessGame />} />
                   <Route path="/lobby" element={<Lobby />} />
-                  <Route path="/game-play/human" element={<HumanVsHuman />} />
+                  <Route path="/game-play/human" element={<HumanVsHumanV2 />} />
                   <Route
                     path="/game-play/computer"
                     element={<HumanVsComputer />}

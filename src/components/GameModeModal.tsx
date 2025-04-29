@@ -117,6 +117,7 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
           isBetting: createdMessage.isBetting,
           playerColor: createdMessage.color,
           isJoined: true,
+          duration: createdMessage.duration,
         };
         localStorageHelper.setItem(LocalStorageKeysEnum.GameDetails, data);
 
@@ -148,7 +149,7 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
       );
       setUserClickedCreate(false); // Reset click tracker on error
     }
-  }, [lastMessage]);
+  }, [lastMessage, userClickedCreate, navigate, onOpenChange]);
 
   // show error after 10 seconds if game is not created
   useEffect(() => {

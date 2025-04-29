@@ -108,7 +108,7 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
     ) {
       return;
     }
-    
+
     if (messageData.type === WebSocketMessageTypeEnum.Joined) {
       const joinedMessage = messageData;
       const data: IGameDetailsLocalStorage = {
@@ -117,6 +117,7 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
         isBetting: joinedMessage.isBetting,
         playerColor: joinedMessage.color,
         isJoined: true,
+        duration: joinedMessage.duration,
       };
       localStorageHelper.setItem(LocalStorageKeysEnum.GameDetails, data);
       toast.success(`Successfully joined game ${joinedMessage.gameId}`);
