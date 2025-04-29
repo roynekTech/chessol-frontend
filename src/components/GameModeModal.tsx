@@ -134,6 +134,7 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
           playerColor: createdMessage.color,
           isJoined: true,
           duration: createdMessage?.duration || duration,
+          playerWalletAddress: walletAddress,
         };
         localStorageHelper.setItem(LocalStorageKeysEnum.GameDetails, data);
 

@@ -169,7 +169,7 @@ export interface IWSChatBroadcast {
 export interface IWSReconnectMessage {
   type: WebSocketMessageTypeEnum.Reconnect;
   gameId: string;
-  playerId: string;
+  walletAddress: string;
 }
 
 export interface IWSReconnectedMessage {
@@ -183,7 +183,7 @@ export interface IWSReconnectedMessage {
 export interface IWSResignMessage {
   type: WebSocketMessageTypeEnum.Resign;
   gameId: string;
-  playerId: string;
+  walletAddress: string;
 }
 
 export interface IWSGameEndedMessage {
@@ -260,7 +260,8 @@ export interface IGameDetailsLocalStorage {
   isBetting: boolean;
   playerColor?: SideEnum | string;
   isJoined: boolean;
-  duration?: number; // Store duration in milliseconds
+  duration?: number;
+  playerWalletAddress: string;
 }
 
 export interface IGetBestMovePayload {

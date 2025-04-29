@@ -118,6 +118,7 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
         playerColor: joinedMessage.color,
         isJoined: true,
         duration: joinedMessage.duration,
+        playerWalletAddress: walletAddress,
       };
       localStorageHelper.setItem(LocalStorageKeysEnum.GameDetails, data);
       toast.success(`Successfully joined game ${joinedMessage.gameId}`);

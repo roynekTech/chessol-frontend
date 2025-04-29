@@ -16,6 +16,8 @@ import {
   IWSMoveBroadcast,
   IWSMoveMessage,
   IWSJoinedMessage,
+  IWSReconnectMessage,
+  IWSReconnectedMessage,
 } from "../../utils/type";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { formatTime } from "../../utils/chessUtils";
@@ -115,7 +117,6 @@ export function HumanVsHumanV2() {
   const [game] = useState(new Chess());
   const { sendMessage, lastMessage } = useWebSocketContext();
   const { publicKey } = useWallet();
-  const walletAddress = publicKey?.toBase58() || "";
 
   // --- Move highlight timeout ref ---
   const moveHighlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -127,6 +128,16 @@ export function HumanVsHumanV2() {
 
   const gameId = gameDetails?.gameId || null;
   const playerColor = (gameDetails?.playerColor || null) as Color | null;
+  const playerWalletAddress = gameDetails?.playerWalletAddress;
+
+  const [walletAddress, setWalletAddress] = useState(playerWalletAddress);
+
+  // update wallet address on page load
+  useEffect(() => {
+    if (!walletAddress) {
+      setWalletAddress(publicKey?.toBase58() || "");
+    }
+  }, [publicKey]);
 
   // Get duration in seconds (default to 600s = 10min if not found)
   const initialDurationSec = gameDetails?.duration
@@ -225,7 +236,34 @@ export function HumanVsHumanV2() {
     };
   }, []);
 
-  // WebSocket message handler updates
+  // On mount, handle reconnection if needed
+  useEffect(() => {
+    console.log("gameId", gameId);
+    if (!gameId) {
+      return;
+    }
+
+    // Create reconnect message
+    const reconnectMessage: IWSReconnectMessage = {
+      type: WebSocketMessageTypeEnum.Reconnect,
+      gameId: gameId,
+      walletAddress: walletAddress!,
+    };
+
+    // sleep for 1 seconds so that websocket can initiate
+    setTimeout(() => {
+      if (walletAddress && gameId) {
+        sendMessage(JSON.stringify(reconnectMessage));
+      }
+    }, 2000);
+
+    // Update UI to show reconnection attempt
+    setGameState((prev) => ({
+      ...prev,
+      gameStatus: "Attempting to reconnect...",
+    }));
+  }, [navigate]);
+
   useEffect(() => {
     if (!lastMessage?.data) return;
 
@@ -360,6 +398,47 @@ export function HumanVsHumanV2() {
           break;
         }
 
+        case WebSocketMessageTypeEnum.Reconnected: {
+          const reconnectedMsg = messageData as IWSReconnectedMessage;
+          console.log("Successfully reconnected to game:", reconnectedMsg);
+
+          // Load the returned game state
+          if (reconnectedMsg.fen) {
+            game.load(reconnectedMsg.fen);
+            const newCapturedPieces = calculateCapturedPieces(game.board());
+
+            setGameState((prev) => ({
+              ...prev,
+              fen: game.fen(),
+              playerTurn: game.turn() as Color,
+              moveHistory: game.history(),
+              capturedPieces: newCapturedPieces,
+              isOpponentConnected: true,
+              isTimerRunning: reconnectedMsg.status === "active",
+              gameStatus:
+                game.isGameOver()
+                  ? `Game ${reconnectedMsg.status}`
+                  : game.turn() === stablePlayerColor
+                    ? "Your turn to move"
+                    : `Waiting for ${game.turn() === "w" ? "white" : "black"} to move`,
+            }));
+
+            // Update localStorage with reconnected game details if needed
+            const currentGameDetails = localStorageHelper.getItem(
+              LocalStorageKeysEnum.GameDetails
+            ) as IGameDetailsLocalStorage;
+
+            if (currentGameDetails) {
+              localStorageHelper.setItem(LocalStorageKeysEnum.GameDetails, {
+                ...currentGameDetails,
+                fen: reconnectedMsg.fen,
+              });
+            }
+            console.log("Successfully reconnected to the game!");
+          }
+          break;
+        }
+
         case WebSocketMessageTypeEnum.Error: {
           const errorMsg = messageData as IWSErrorMessage;
           toast.error(`Game Error: ${errorMsg.message}`);
@@ -369,38 +448,48 @@ export function HumanVsHumanV2() {
     } catch (err) {
       console.error("Failed to parse WebSocket message:", err);
     }
-  }, [lastMessage, game, gameId, stablePlayerColor]);
+  }, [lastMessage, game, gameId, playerColor]);
 
   // Handle square click updates
   const handleSquareClick = useCallback(
     (square: Square) => {
+      // Early validation - check if it's the player's turn
+      const isPlayersTurn = stablePlayerColor === gameState.playerTurn;
+
+      // Log for debugging
       console.log(
         "Square clicked:",
         square,
-        "Stable player color:",
+        "Player color:",
         stablePlayerColor,
-        "Game turn:",
-        gameState.playerTurn
+        "Current turn:",
+        gameState.playerTurn,
+        "Is player's turn:",
+        isPlayersTurn
       );
 
-      // Check if it's the player's turn using stable color
-      if (
-        gameState.winner ||
-        game.isGameOver() ||
-        !stablePlayerColor ||
-        gameState.playerTurn !== stablePlayerColor
-      ) {
-        if (
-          gameState.playerTurn !== stablePlayerColor &&
-          gameState.isOpponentConnected
-        ) {
+      // Block any interaction if:
+      // 1. Game is over (winner exists)
+      // 2. Chess.js reports game over
+      // 3. No valid player color assigned
+      // 4. It's not the player's turn
+      if (gameState.winner || game.isGameOver() || !stablePlayerColor) {
+        return;
+      }
+
+      // Validate it's the player's turn before any interaction
+      if (!isPlayersTurn) {
+        if (gameState.isOpponentConnected) {
           toast.error("Wait for your turn!");
         }
         return;
       }
 
+      // Now continue with piece selection and move logic
       if (!gameState.selectedSquare) {
         const piece = game.get(square);
+
+        // Check if the selected piece belongs to the player
         if (piece?.color === stablePlayerColor) {
           const legalMoves = game.moves({
             square,
@@ -411,6 +500,9 @@ export function HumanVsHumanV2() {
             selectedSquare: square,
             validMoves: legalMoves.map((m) => m.to as Square),
           }));
+        } else if (piece) {
+          // If player selected opponent's piece
+          toast.error("You can only move your own pieces!");
         }
       } else {
         if (gameState.validMoves.includes(square)) {
@@ -434,7 +526,7 @@ export function HumanVsHumanV2() {
                 gameId,
                 fen: game.fen(),
                 initialFen,
-                walletAddress,
+                walletAddress: walletAddress!,
                 move: `${move.from}${move.to}`,
               };
 
@@ -467,12 +559,15 @@ export function HumanVsHumanV2() {
                   ...prev,
                   moveHighlight: null,
                 }));
-              }, 4000); // Increased to 4 seconds
+              }, 4000);
             }
-          } catch {
+          } catch (error) {
+            console.error("Move error:", error);
             toast.error("Invalid move!");
           }
         }
+
+        // Always clear selection after an attempt to move, whether valid or not
         setGameState((prev) => ({
           ...prev,
           selectedSquare: null,
@@ -480,7 +575,6 @@ export function HumanVsHumanV2() {
         }));
       }
     },
-    // Remove isTimerRunning from dependencies as it's handled by the Joined message now
     [
       game,
       gameState.selectedSquare,
@@ -491,6 +585,8 @@ export function HumanVsHumanV2() {
       stablePlayerColor,
       gameId,
       sendMessage,
+      walletAddress,
+      moveHighlightTimeoutRef,
     ]
   );
 

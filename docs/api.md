@@ -317,7 +317,7 @@ All messages must be JSON objects with a `type` field indicating the message typ
 {
   "type": "resign",
   "gameId": "uuid123",
-  "playerId": "0x123..."
+  "walletAddress": "0x123..."
 }
 ```
 
