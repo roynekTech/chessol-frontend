@@ -1,4 +1,14 @@
-import { Square } from "chess.js";
+import { Chess, Color, PieceSymbol, Square } from "chess.js";
+
+export interface ICapturedPiece {
+  type: PieceSymbol;
+  color: Color;
+}
+
+export interface ICalculateCapturedPiecesRes {
+  w: ICapturedPiece[];
+  b: ICapturedPiece[];
+}
 
 /**
  * Convert a string to a valid chess.js Square type
@@ -56,10 +66,69 @@ export const getPieceValue = (pieceType: string): number => {
  * @param seconds Time in seconds
  * @returns Formatted time string
  */
-export const formatTime = (seconds: number): string => {
+export const formatTime = (milliseconds: number): string => {
+  const seconds = Math.floor(milliseconds / 1000);
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
   return `${mins.toString().padStart(2, "0")}:${secs
     .toString()
     .padStart(2, "0")}`;
 };
+
+export function calculateCapturedPieces(
+  board: ReturnType<Chess["board"]>
+): ICalculateCapturedPiecesRes {
+  // Standard piece counts at the start of a game
+  const startingCounts: Record<Color, Record<PieceSymbol, number>> = {
+    w: { p: 8, n: 2, b: 2, r: 2, q: 1, k: 1 },
+    b: { p: 8, n: 2, b: 2, r: 2, q: 1, k: 1 },
+  };
+
+  // Current piece counts on the board
+  const currentCounts: Record<Color, Record<PieceSymbol, number>> = {
+    w: { p: 0, n: 0, b: 0, r: 0, q: 0, k: 0 },
+    b: { p: 0, n: 0, b: 0, r: 0, q: 0, k: 0 },
+  };
+
+  // Count pieces currently on the board
+  for (const row of board) {
+    for (const square of row) {
+      if (square) {
+        currentCounts[square.color][square.type]++;
+      }
+    }
+  }
+
+  const captured: { w: ICapturedPiece[]; b: ICapturedPiece[] } = {
+    w: [],
+    b: [],
+  };
+
+  // Determine captured pieces by comparing starting and current counts
+  for (const color of ["w", "b"] as Color[]) {
+    for (const type of ["p", "n", "b", "r", "q"] as PieceSymbol[]) {
+      const diff = startingCounts[color][type] - currentCounts[color][type];
+      if (diff > 0) {
+        // The opponent captured 'diff' pieces of this type and color
+        const capturingColor = color === "w" ? "b" : "w";
+        for (let i = 0; i < diff; i++) {
+          captured[capturingColor].push({ type, color });
+        }
+      }
+    }
+  }
+
+  // Sort captured pieces (optional, e.g., by value)
+  const pieceValues: Record<PieceSymbol, number> = {
+    p: 1,
+    n: 3,
+    b: 3,
+    r: 5,
+    q: 9,
+    k: 0,
+  };
+  captured.w.sort((a, b) => pieceValues[b.type] - pieceValues[a.type]);
+  captured.b.sort((a, b) => pieceValues[b.type] - pieceValues[a.type]);
+
+  return captured;
+}

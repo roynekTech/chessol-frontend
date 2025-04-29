@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, useRef } from "react";
-import { Chess, Square, Color, PieceSymbol } from "chess.js";
+import { Chess, Square, Color } from "chess.js";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Trophy, MessageCircle } from "lucide-react";
@@ -20,14 +20,12 @@ import {
   IWSReconnectedMessage,
 } from "../../utils/type";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { formatTime } from "../../utils/chessUtils";
+import {
+  calculateCapturedPieces,
+  formatTime,
+  ICapturedPiece,
+} from "../../utils/chessUtils";
 import { useWallet } from "@solana/wallet-adapter-react";
-
-// Types
-interface ICapturedPiece {
-  type: PieceSymbol;
-  color: Color;
-}
 
 interface IGameState {
   fen: string;
@@ -41,76 +39,19 @@ interface IGameState {
   };
   lastMove: { from: Square; to: Square } | null;
   winner: Color | "draw" | null;
+  isEnded: boolean;
+  isOngoing: boolean;
+  isStarted: boolean;
   gameStatus: string;
   timers: {
     w: number;
     b: number;
   };
   activeTimer: Color | null;
-  isOpponentConnected: boolean;
-  isTimerRunning: boolean;
   moveHighlight: { from: Square; to: Square } | null;
+  whitePlayerTimerInMilliseconds: number;
+  blackPlayerTimerInMilliseconds: number;
 }
-
-// --- Utility Function ---
-const calculateCapturedPieces = (
-  board: ReturnType<Chess["board"]>
-): { w: ICapturedPiece[]; b: ICapturedPiece[] } => {
-  // Standard piece counts at the start of a game
-  const startingCounts: Record<Color, Record<PieceSymbol, number>> = {
-    w: { p: 8, n: 2, b: 2, r: 2, q: 1, k: 1 },
-    b: { p: 8, n: 2, b: 2, r: 2, q: 1, k: 1 },
-  };
-
-  // Current piece counts on the board
-  const currentCounts: Record<Color, Record<PieceSymbol, number>> = {
-    w: { p: 0, n: 0, b: 0, r: 0, q: 0, k: 0 },
-    b: { p: 0, n: 0, b: 0, r: 0, q: 0, k: 0 },
-  };
-
-  // Count pieces currently on the board
-  for (const row of board) {
-    for (const square of row) {
-      if (square) {
-        currentCounts[square.color][square.type]++;
-      }
-    }
-  }
-
-  const captured: { w: ICapturedPiece[]; b: ICapturedPiece[] } = {
-    w: [],
-    b: [],
-  };
-
-  // Determine captured pieces by comparing starting and current counts
-  for (const color of ["w", "b"] as Color[]) {
-    for (const type of ["p", "n", "b", "r", "q"] as PieceSymbol[]) {
-      const diff = startingCounts[color][type] - currentCounts[color][type];
-      if (diff > 0) {
-        // The opponent captured 'diff' pieces of this type and color
-        const capturingColor = color === "w" ? "b" : "w";
-        for (let i = 0; i < diff; i++) {
-          captured[capturingColor].push({ type, color });
-        }
-      }
-    }
-  }
-
-  // Sort captured pieces (optional, e.g., by value)
-  const pieceValues: Record<PieceSymbol, number> = {
-    p: 1,
-    n: 3,
-    b: 3,
-    r: 5,
-    q: 9,
-    k: 0,
-  };
-  captured.w.sort((a, b) => pieceValues[b.type] - pieceValues[a.type]);
-  captured.b.sort((a, b) => pieceValues[b.type] - pieceValues[a.type]);
-
-  return captured;
-};
-// --- End Utility Function ---
 
 export function HumanVsHumanV2() {
   const navigate = useNavigate();
@@ -118,7 +59,6 @@ export function HumanVsHumanV2() {
   const { sendMessage, lastMessage } = useWebSocketContext();
   const { publicKey } = useWallet();
 
-  // --- Move highlight timeout ref ---
   const moveHighlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Get game details from localStorage, including duration
@@ -139,11 +79,6 @@ export function HumanVsHumanV2() {
     }
   }, [publicKey]);
 
-  // Get duration in seconds (default to 600s = 10min if not found)
-  const initialDurationSec = gameDetails?.duration
-    ? gameDetails.duration / 1000
-    : 600;
-
   const boardOrientationRef = useRef<"w" | "b">(
     (playerColor as "w" | "b") || "w"
   );
@@ -156,7 +91,7 @@ export function HumanVsHumanV2() {
 
   // On mount, try to load saved game state
   const savedGameState = localStorageHelper.getItem(
-    LocalStorageKeysEnum["GameState"]
+    LocalStorageKeysEnum.GameState
   );
   const [gameState, setGameState] = useState<IGameState>(
     savedGameState && savedGameState.gameId === gameId
@@ -171,14 +106,12 @@ export function HumanVsHumanV2() {
           lastMove: null,
           winner: null,
           gameStatus: "Waiting for opponent...",
-          timers: {
-            w: initialDurationSec,
-            b: initialDurationSec,
-          },
           activeTimer: null,
           isOpponentConnected: false,
           isTimerRunning: false,
           moveHighlight: null,
+          whitePlayerTimerInMilliseconds: gameDetails?.duration,
+          blackPlayerTimerInMilliseconds: gameDetails?.duration,
         }
   );
 
@@ -209,23 +142,9 @@ export function HumanVsHumanV2() {
   // Clean up game state in localStorage if gameId changes or on game end
   useEffect(() => {
     return () => {
-      localStorageHelper.deleteItem(LocalStorageKeysEnum["GameState"]);
+      localStorageHelper.deleteItem(LocalStorageKeysEnum.GameState);
     };
   }, [gameId]);
-
-  // Timer effect: Decrement BOTH timers simultaneously
-  useEffect(() => {
-    // Only run the timer if it's supposed to be running and game isn't over
-    if (!gameState.isTimerRunning || gameState.winner) return;
-
-    const interval = setInterval(() => {
-      // Call updateTimer (it doesn't take arguments anymore)
-      updateTimer();
-    }, 1000);
-
-    return () => clearInterval(interval);
-    // Only depends on isTimerRunning and winner state
-  }, [gameState.isTimerRunning, gameState.winner]);
 
   // Clean up move highlight timeout on unmount
   useEffect(() => {
@@ -238,7 +157,6 @@ export function HumanVsHumanV2() {
 
   // On mount, handle reconnection if needed
   useEffect(() => {
-    console.log("gameId", gameId);
     if (!gameId) {
       return;
     }
@@ -255,7 +173,7 @@ export function HumanVsHumanV2() {
       if (walletAddress && gameId) {
         sendMessage(JSON.stringify(reconnectMessage));
       }
-    }, 2000);
+    }, 1000);
 
     // Update UI to show reconnection attempt
     setGameState((prev) => ({
@@ -264,8 +182,11 @@ export function HumanVsHumanV2() {
     }));
   }, [navigate]);
 
+  // Handle WebSocket messages
   useEffect(() => {
-    if (!lastMessage?.data) return;
+    if (!lastMessage?.data) {
+      return;
+    }
 
     try {
       const messageData = JSON.parse(lastMessage.data);
@@ -415,12 +336,13 @@ export function HumanVsHumanV2() {
               capturedPieces: newCapturedPieces,
               isOpponentConnected: true,
               isTimerRunning: reconnectedMsg.status === "active",
-              gameStatus:
-                game.isGameOver()
-                  ? `Game ${reconnectedMsg.status}`
-                  : game.turn() === stablePlayerColor
-                    ? "Your turn to move"
-                    : `Waiting for ${game.turn() === "w" ? "white" : "black"} to move`,
+              gameStatus: game.isGameOver()
+                ? `Game ${reconnectedMsg.status}`
+                : game.turn() === stablePlayerColor
+                ? "Your turn to move"
+                : `Waiting for ${
+                    game.turn() === "w" ? "white" : "black"
+                  } to move`,
             }));
 
             // Update localStorage with reconnected game details if needed
@@ -456,18 +378,6 @@ export function HumanVsHumanV2() {
       // Early validation - check if it's the player's turn
       const isPlayersTurn = stablePlayerColor === gameState.playerTurn;
 
-      // Log for debugging
-      console.log(
-        "Square clicked:",
-        square,
-        "Player color:",
-        stablePlayerColor,
-        "Current turn:",
-        gameState.playerTurn,
-        "Is player's turn:",
-        isPlayersTurn
-      );
-
       // Block any interaction if:
       // 1. Game is over (winner exists)
       // 2. Chess.js reports game over
@@ -479,9 +389,7 @@ export function HumanVsHumanV2() {
 
       // Validate it's the player's turn before any interaction
       if (!isPlayersTurn) {
-        if (gameState.isOpponentConnected) {
-          toast.error("Wait for your turn!");
-        }
+        toast.error("Wait for your turn!");
         return;
       }
 
@@ -530,7 +438,7 @@ export function HumanVsHumanV2() {
                 move: `${move.from}${move.to}`,
               };
 
-              console.log("Sending move message:", moveMessage);
+              // Send move message to the server
               sendMessage(JSON.stringify(moveMessage));
 
               // Update local state with the move highlight
@@ -553,13 +461,13 @@ export function HumanVsHumanV2() {
                 clearTimeout(moveHighlightTimeoutRef.current);
               }
 
-              // Set a longer timeout (4 seconds)
+              // Set a longer timeout (3 seconds)
               moveHighlightTimeoutRef.current = setTimeout(() => {
                 setGameState((prev) => ({
                   ...prev,
                   moveHighlight: null,
                 }));
-              }, 4000);
+              }, 3000);
             }
           } catch (error) {
             console.error("Move error:", error);
@@ -581,7 +489,6 @@ export function HumanVsHumanV2() {
       gameState.validMoves,
       gameState.winner,
       gameState.playerTurn,
-      gameState.isOpponentConnected,
       stablePlayerColor,
       gameId,
       sendMessage,
@@ -726,7 +633,10 @@ export function HumanVsHumanV2() {
       name: isPlayer ? "You" : "Opponent",
     };
     const isCurrentTurn = gameState.playerTurn === color;
-    const timeRemaining = gameState.timers[color];
+    const timeRemaining =
+      color === "w"
+        ? gameState.whitePlayerTimerInMilliseconds
+        : gameState.blackPlayerTimerInMilliseconds;
     const capturedPieces = gameState.capturedPieces[color];
 
     // Use the stable orientation for panel positioning
@@ -822,65 +732,45 @@ export function HumanVsHumanV2() {
     );
   };
 
-  // updateTimer function: Decrement both timers and check for timeout
-  const updateTimer = () => {
-    setGameState((prev) => {
-      if (!prev.isTimerRunning || prev.winner) {
-        return prev; // Don't update if timer stopped or game ended
-      }
-
-      const newTimeW = Math.max(0, prev.timers.w - 1);
-      const newTimeB = Math.max(0, prev.timers.b - 1);
-      let winner: Color | "draw" | null = null;
-      let reason = "";
-
-      // Check if timeout occurred
-      if (newTimeW === 0 && newTimeB > 0) {
-        // Check B still has time
-        winner = "b"; // Black wins if white times out
-        reason = "White ran out of time";
-      } else if (newTimeB === 0 && newTimeW > 0) {
-        // Check W still has time
-        winner = "w"; // White wins if black times out
-        reason = "Black ran out of time";
-      } else if (newTimeW === 0 && newTimeB === 0) {
-        // If both timers reach 0 simultaneously, it's a draw
-        winner = "draw";
-        reason = "Both players ran out of time";
-      }
-
-      // If a timeout occurred, send message and update state
-      if (winner && gameId) {
-        const timeoutMessage = {
-          type: WebSocketMessageTypeEnum.GameEnded,
-          gameId,
-          winner,
-          reason,
-        };
-        sendMessage(JSON.stringify(timeoutMessage));
-        // Update local state immediately to show timeout
-        return {
-          ...prev,
-          timers: { w: newTimeW, b: newTimeB },
-          winner,
-          gameStatus: reason,
-          isTimerRunning: false, // Stop the timer
-        };
-      }
-
-      // Otherwise, just update the timers
-      return {
-        ...prev,
-        timers: { w: newTimeW, b: newTimeB },
-      };
-    });
-  };
-
   useEffect(() => {
     if (savedGameState && savedGameState.fen) {
       game.load(savedGameState.fen);
     }
   }, []);
+
+  // Update timer every second
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setGameState((prev) => ({
+        ...prev,
+        ...(gameState.playerTurn === "w"
+          ? {
+              whitePlayerTimerInMilliseconds:
+                prev.whitePlayerTimerInMilliseconds - 1000,
+            }
+          : {
+              blackPlayerTimerInMilliseconds:
+                prev.blackPlayerTimerInMilliseconds - 1000,
+            }),
+      }));
+
+      // update local storage
+      localStorageHelper.updateItem(LocalStorageKeysEnum.GameState, {
+        ...gameState,
+        ...(gameState.playerTurn === "w"
+          ? {
+              whitePlayerTimerInMilliseconds:
+                gameState.whitePlayerTimerInMilliseconds - 1000,
+            }
+          : {
+              blackPlayerTimerInMilliseconds:
+                gameState.blackPlayerTimerInMilliseconds - 1000,
+            }),
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [gameState.playerTurn]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-950 to-black text-white">

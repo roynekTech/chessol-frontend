@@ -49,38 +49,4 @@ export const localStorageHelper = {
       console.error("Error deleting item from localStorage", error);
     }
   },
-
-  // Track page load count for specific game
-  incrementPageLoadCount: (gameId: string) => {
-    try {
-      const countKey = `pageLoadCount_${gameId}`;
-      const currentCount = localStorageHelper.getItem(countKey) || 0;
-      localStorageHelper.setItem(countKey, currentCount + 1);
-      return currentCount + 1;
-    } catch (error) {
-      console.error("Error incrementing page load count", error);
-      return 1;
-    }
-  },
-
-  // Get current page load count
-  getPageLoadCount: (gameId: string) => {
-    try {
-      const countKey = `pageLoadCount_${gameId}`;
-      return localStorageHelper.getItem(countKey) || 0;
-    } catch (error) {
-      console.error("Error getting page load count", error);
-      return 0;
-    }
-  },
-
-  // Reset the page load counter
-  resetPageLoadCount: (gameId: string) => {
-    try {
-      const countKey = `pageLoadCount_${gameId}`;
-      localStorageHelper.deleteItem(countKey);
-    } catch (error) {
-      console.error("Error resetting page load count", error);
-    }
-  },
 };
