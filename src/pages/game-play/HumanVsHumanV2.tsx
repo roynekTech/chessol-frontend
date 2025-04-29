@@ -26,6 +26,17 @@ import {
   ICapturedPiece,
 } from "../../utils/chessUtils";
 import { useWallet } from "@solana/wallet-adapter-react";
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
 
 interface IGameState {
   fen: string;
@@ -703,6 +714,56 @@ export function HumanVsHumanV2() {
     );
   };
 
+  const [showResignDialog, setShowResignDialog] = useState(false);
+  const resignSentRef = useRef(false);
+
+  // --- Resign logic ---
+  const handleResign = useCallback(() => {
+    if (!gameId || !walletAddress || gameState.isEnded || resignSentRef.current) return;
+    resignSentRef.current = true;
+    const resignMsg = {
+      type: WebSocketMessageTypeEnum.Resign,
+      gameId,
+      walletAddress,
+    };
+    sendMessage(JSON.stringify(resignMsg));
+    setGameState((prev) => ({
+      ...prev,
+      isEnded: true,
+      winner: stablePlayerColor === "w" ? "b" : "w", // Opponent wins
+      gameStatus: "You resigned. Game ended.",
+    }));
+    setShowResignDialog(false);
+  }, [gameId, walletAddress, gameState.isEnded, sendMessage, stablePlayerColor]);
+
+  // --- Timer logic: auto-resign at zero ---
+  useEffect(() => {
+    if (gameState.isEnded) return;
+    const interval = setInterval(() => {
+      setGameState((prev) => {
+        if (prev.isEnded) return prev;
+        let w = prev.whitePlayerTimerInMilliseconds;
+        let b = prev.blackPlayerTimerInMilliseconds;
+        if (prev.playerTurn === "w") w = Math.max(0, w - 1000);
+        else b = Math.max(0, b - 1000);
+        // If timer hits zero and it's our turn, auto-resign
+        if (
+          ((prev.playerTurn === stablePlayerColor && ((prev.playerTurn === "w" && w <= 0) || (prev.playerTurn === "b" && b <= 0))) &&
+            !resignSentRef.current &&
+            !prev.isEnded)
+        ) {
+          handleResign();
+        }
+        return {
+          ...prev,
+          whitePlayerTimerInMilliseconds: w,
+          blackPlayerTimerInMilliseconds: b,
+        };
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [gameState.playerTurn, gameState.isEnded, handleResign, stablePlayerColor]);
+
   useEffect(() => {
     if (savedGameState && savedGameState.fen) {
       game.load(savedGameState.fen);
@@ -773,13 +834,35 @@ export function HumanVsHumanV2() {
               <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Chat</span>
             </Button>
-            <Button
-              variant="destructive"
-              className="gap-1 sm:gap-2 cursor-pointer text-xs sm:text-sm"
-              size="sm"
-            >
-              Resign
-            </Button>
+            <AlertDialog open={showResignDialog} onOpenChange={setShowResignDialog}>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="destructive"
+                  className="gap-1 sm:gap-2 cursor-pointer text-xs sm:text-sm"
+                  size="sm"
+                  onClick={() => setShowResignDialog(true)}
+                  disabled={gameState.isEnded}
+                >
+                  Resign
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Confirm Resignation</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to resign? This will end the game and your opponent will be declared the winner.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel onClick={() => setShowResignDialog(false)}>
+                    Cancel
+                  </AlertDialogCancel>
+                  <AlertDialogAction onClick={handleResign} autoFocus>
+                    Yes, Resign
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
 
