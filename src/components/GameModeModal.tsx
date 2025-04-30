@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { User, Bot, Swords, Trophy, Zap, Crown, Clock } from "lucide-react";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import {
@@ -24,6 +24,13 @@ import {
 import { localStorageHelper } from "../utils/localStorageHelper";
 import { toast } from "sonner";
 import { useWebSocketContext } from "../context/useWebSocketContext";
+import {
+  PublicKey,
+  SystemProgram,
+  Transaction,
+  LAMPORTS_PER_SOL,
+} from "@solana/web3.js";
+import { ESCROW_ADDRESS } from "../utils/constants";
 
 interface GameModeModalProps {
   open: boolean;
@@ -48,15 +55,64 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
 
   const { sendMessage, lastMessage } = useWebSocketContext();
 
-  const handleStartGame = () => {
+  const { connection } = useConnection();
+  const { sendTransaction } = useWallet();
+  const [isSendingBetTx, setIsSendingBetTx] = useState(false);
+
+  const handleBetTransaction = async () => {
+    if (!walletAddress || !publicKey) {
+      toast.error("Please connect your wallet.");
+      return;
+    }
+    if (
+      !playerAmount ||
+      isNaN(Number(playerAmount)) ||
+      Number(playerAmount) <= 0
+    ) {
+      toast.error("Please enter a valid bet amount.");
+      return;
+    }
+    setIsSendingBetTx(true);
+    try {
+      const escrowPubkey = new PublicKey(ESCROW_ADDRESS);
+      const lamports = Math.floor(Number(playerAmount) * LAMPORTS_PER_SOL);
+      const transaction = new Transaction().add(
+        SystemProgram.transfer({
+          fromPubkey: publicKey,
+          toPubkey: escrowPubkey,
+          lamports,
+        })
+      );
+      // Prompt wallet to sign and send
+      const signature = await sendTransaction(transaction, connection);
+      // Optionally, wait for confirmation
+      await connection.confirmTransaction(signature, "confirmed");
+      setTransactionId(signature);
+      toast.success("Bet transaction sent! Proceeding to create game...");
+      // Now proceed to create the game
+      setTimeout(() => handleStartGame(true, signature), 500); // Pass signature to handleStartGame
+    } catch (err: unknown) {
+      let errorMsg = "Unknown error";
+      if (err instanceof Error) {
+        errorMsg = err.message;
+      } else if (typeof err === "string") {
+        errorMsg = err;
+      }
+      toast.error("Transaction failed: " + errorMsg);
+    } finally {
+      setIsSendingBetTx(false);
+    }
+  };
+
+  const handleStartGame = (autoProceed = false, txHash = "") => {
     if (gameMode === "computer") {
       // Navigate directly for computer game
       const playerPlaysAs = computerColor === "w" ? "b" : "w"; // Determine human player color
       const computerParams = new URLSearchParams({
         difficulty: String(difficulty),
         computerColor: computerColor,
-        playerColor: playerPlaysAs, // Optional: Pass what color human plays
-        duration: String(duration), // Add duration parameter
+        playerColor: playerPlaysAs,
+        duration: String(duration),
       });
       console.log(
         `Starting computer game with params: ${computerParams.toString()}`
@@ -64,19 +120,20 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
       navigate(`/game-play/computer?${computerParams.toString()}`);
       onOpenChange(false); // Close modal after navigating
     } else {
-      // Validation: if betting, require amount and txHash
-      if (isBetting && (!playerAmount || !transactionId)) {
-        toast.error("Please enter betting amount and transaction hash.");
+      if (
+        isBetting &&
+        (!playerAmount || !(autoProceed ? txHash : transactionId))
+      ) {
+        if (!autoProceed) {
+          handleBetTransaction();
+        }
         return;
       }
-
       // Validation: Check if wallet is connected
       if (!walletAddress) {
         toast.error("Please connect your wallet to create a human game.");
-        // Consider prompting wallet connection here if using a wallet adapter modal
         return;
       }
-
       // Prepare and send message to WebSocket server
       const message = {
         type: WebSocketMessageTypeEnum.Create,
@@ -84,13 +141,15 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
         side, // User's chosen side
         duration,
         isBetting,
-        transactionId: isBetting ? transactionId : null, // Send null if not betting
+        transactionId: isBetting
+          ? autoProceed
+            ? txHash
+            : transactionId
+          : null, // Use txHash if provided
         playerAmount: isBetting ? Number(playerAmount) : null,
       };
-
       console.log("Sending Create Game (Human) message:", message);
       sendMessage(JSON.stringify(message));
-
       setUserClickedCreate(true);
       setGameCreated(false);
     }
@@ -428,11 +487,15 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
                         />
                       </div>
                       <div>
+                        <p className="text-sm text-white mb-2 bg-gray-500 rounded-md p-2">
+                          Note: You can click on "Start Game" and pay if you
+                          don't want to manually send the transaction.
+                        </p>
                         <Label
                           htmlFor="tx-hash"
                           className="text-sm text-gray-400"
                         >
-                          Escrow Transaction Hash
+                          Payment Hash
                         </Label>
                         <Input
                           id="tx-hash"
@@ -550,15 +613,48 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
             >
               <Button
                 className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-semibold py-4 sm:py-6 text-lg rounded-xl shadow-lg shadow-amber-900/20 transition-all duration-300 transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black focus:ring-amber-400 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
-                onClick={handleStartGame}
+                onClick={() => handleStartGame()}
                 disabled={
-                  (gameMode === "human" &&
-                    isBetting &&
-                    (!playerAmount || !transactionId)) ||
+                  isSendingBetTx ||
+                  (gameMode === "human" && isBetting && !playerAmount) ||
                   userClickedCreate
                 }
               >
-                {userClickedCreate ? (
+                {isSendingBetTx ? (
+                  <>
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{
+                        duration: 1,
+                        repeat: Infinity,
+                        ease: "linear",
+                      }}
+                      style={{ display: "inline-block", marginRight: "8px" }}
+                    >
+                      <svg
+                        className="animate-spin h-5 w-5 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                    </motion.div>
+                    Sending bet transaction...
+                  </>
+                ) : userClickedCreate ? (
                   <>
                     <motion.div
                       animate={{ rotate: 360 }}
