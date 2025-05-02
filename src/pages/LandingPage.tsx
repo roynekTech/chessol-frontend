@@ -7,6 +7,7 @@ import {
   WalletDisconnectButton,
 } from "@solana/wallet-adapter-react-ui";
 import { useWallet } from "@solana/wallet-adapter-react";
+import { toast } from "sonner";
 
 export function LandingPage() {
   const navigate = useNavigate();
@@ -79,7 +80,13 @@ export function LandingPage() {
             <Button
               size="lg"
               className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold text-lg px-10 py-6 rounded-full shadow-lg shadow-amber-900/20 hover:shadow-xl transition-all duration-300 w-full sm:w-auto cursor-pointer"
-              onClick={() => navigate("/games")}
+              onClick={() => {
+                if (!publicKey) {
+                  toast.error("Please connect your wallet to continue");
+                  return;
+                }
+                navigate("/games");
+              }}
             >
               Get Started
               <ArrowRight className="ml-2 h-5 w-5" />
