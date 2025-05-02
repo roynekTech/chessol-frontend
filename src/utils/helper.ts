@@ -1,4 +1,4 @@
-import { Color, PieceSymbol } from "chess.js";
+import { Chess, Color, PieceSymbol } from "chess.js";
 
 export const helperUtil = {
   // Format time from seconds to MM:SS
@@ -26,5 +26,27 @@ export const helperUtil = {
       bk: "https://www.chess.com/chess-themes/pieces/neo/150/bk.png",
     };
     return pieceImages[`${piece.color}${piece.type}`] || "";
+  },
+
+  didCaptureOccur: (prevFen: string, newFen: string): boolean => {
+    const prevChess = new Chess(prevFen);
+    const newChess = new Chess(newFen);
+
+    // Count pieces for both sides
+    const countPieces = (board: ReturnType<typeof prevChess.board>) => {
+      const counts: Record<Color, number> = { w: 0, b: 0 };
+      board.forEach((row) =>
+        row.forEach((piece) => {
+          if (piece) counts[piece.color]++;
+        })
+      );
+      return counts;
+    };
+
+    const prevCounts = countPieces(prevChess.board());
+    const newCounts = countPieces(newChess.board());
+
+    // If either side's piece count decreased, a capture occurred
+    return newCounts.w < prevCounts.w || newCounts.b < prevCounts.b;
   },
 };

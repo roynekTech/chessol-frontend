@@ -6,7 +6,6 @@ import { useEffect } from "react";
 export function Layout({ children }: { children: React.ReactNode }) {
   // check user wallet is connected and user is not on homepage
   const { publicKey } = useWallet();
-  console.log("publicKey", publicKey);
   useEffect(() => {
     const timeout = setTimeout(() => {
       if (!publicKey && window.location.pathname !== "/") {

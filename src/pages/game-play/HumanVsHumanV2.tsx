@@ -38,6 +38,7 @@ import {
   AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
 import ChatDropdown from "../../components/game/ChatDropdown";
+import { helperUtil } from "../../utils/helper";
 
 // Sound files
 const MOVE_SOUND_SRC = "/move-sound.wav";
@@ -201,6 +202,15 @@ export function HumanVsHumanV2() {
       return;
     }
 
+    // check if game is ended
+    if (gameState.isEnded) {
+      setGameState((prev) => ({
+        ...prev,
+        gameStatus: "Game is ended, proceed to creating a new game",
+      }));
+      return;
+    }
+
     // Create reconnect message
     const reconnectMessage: IWSReconnectMessage = {
       type: WebSocketMessageTypeEnum.Reconnect,
@@ -283,19 +293,20 @@ export function HumanVsHumanV2() {
           const moveMsg = messageData as IWSMoveBroadcast;
 
           if (moveMsg.fen && moveMsg.lastMove) {
+            const prevFen = game.fen();
             // Load the new position
             game.load(moveMsg.fen);
 
             // Determine if this was a capture by checking the move history
-            const lastHistoryMove = game.history({ verbose: true }).pop();
-            const wasCapture = lastHistoryMove
-              ? Boolean(lastHistoryMove.captured)
-              : false;
+            const didCaptureOccur = helperUtil.didCaptureOccur(
+              prevFen,
+              moveMsg.fen
+            );
 
             // Play appropriate sound if it's opponent's move
             if (game.turn() === stablePlayerColor) {
               // It's our turn now, meaning opponent just moved
-              playSound(wasCapture);
+              playSound(didCaptureOccur);
             }
 
             const newCapturedPieces = calculateCapturedPieces(game.board());
@@ -485,6 +496,7 @@ export function HumanVsHumanV2() {
       // Now continue with piece selection and move logic
       if (!gameState.selectedSquare) {
         const piece = game.get(square);
+        console.log("piece", piece);
 
         // Check if the selected piece belongs to the player
         if (piece?.color === stablePlayerColor) {
@@ -492,6 +504,7 @@ export function HumanVsHumanV2() {
             square,
             verbose: true,
           });
+          console.log("legalMoves", legalMoves);
           setGameState((prev) => ({
             ...prev,
             selectedSquare: square,

@@ -101,7 +101,6 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
       message.playerAmount = Number(requiredAmount);
     }
     sendMessage(JSON.stringify(message));
-    toast.info("Attempting to join game...");
   };
 
   // listen to websocket and handle join event
@@ -140,7 +139,6 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
         playerWalletAddress: walletAddress,
       };
       localStorageHelper.setItem(LocalStorageKeysEnum.GameDetails, data);
-      toast.success(`Successfully joined game ${joinedMessage.gameId}`);
       setIsJoining(false);
       onOpenChange(false);
       navigate(`/game-play/human`);
