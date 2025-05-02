@@ -92,13 +92,50 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
       // Now proceed to create the game
       setTimeout(() => handleStartGame(true, signature), 500); // Pass signature to handleStartGame
     } catch (err: unknown) {
-      let errorMsg = "Unknown error";
+      console.error("Error sending bet transaction:", err);
+
+      let errorMsg =
+        "An unexpected error occurred while sending your bet transaction.";
+      let logs: string[] | undefined = undefined;
+
+      // Check for Solana WalletSendTransactionError (or similar)
+      if (
+        err &&
+        typeof err === "object" &&
+        "getLogs" in err &&
+        typeof err.getLogs === "function"
+      ) {
+        logs = await err.getLogs();
+      }
+
       if (err instanceof Error) {
         errorMsg = err.message;
       } else if (typeof err === "string") {
         errorMsg = err;
       }
-      toast.error("Transaction failed: " + errorMsg);
+
+      // Friendly, actionable error message for the user
+      let userMessage = "Transaction failed. ";
+      if (
+        errorMsg.includes("Simulation failed") ||
+        errorMsg.includes("debit an account")
+      ) {
+        userMessage +=
+          "Please ensure your wallet has enough SOL to cover the bet and transaction fees. " +
+          "If the problem persists, try reconnecting your wallet or refreshing the page.";
+      } else {
+        userMessage += errorMsg;
+      }
+
+      // Show toast to user
+      toast.error(userMessage);
+
+      // Log full error and logs for developer debugging
+      console.error(
+        "Error sending bet transaction:",
+        err,
+        logs ? `\nSolana logs:\n${logs.join("\n")}` : ""
+      );
     } finally {
       setIsSendingBetTx(false);
     }
@@ -465,12 +502,12 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
                       animate={{ opacity: 1, height: "auto" }}
                       exit={{ opacity: 0, height: 0 }}
                       transition={{ duration: 0.2 }}
-                      className="space-y-4 overflow-hidden"
+                      className="space-y-4 overflow-hidden mt-4"
                     >
                       <div>
                         <Label
                           htmlFor="bet-amount"
-                          className="text-sm text-gray-400"
+                          className="mb-3 font-medium text-gray-300 flex items-center"
                         >
                           Bet Amount (SOL)
                         </Label>
@@ -482,11 +519,11 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
                           placeholder="e.g., 0.1"
                           value={playerAmount}
                           onChange={(e) => setPlayerAmount(e.target.value)}
-                          className="mt-1 bg-black/40 border-gray-700 text-white focus:border-amber-500 focus:ring-amber-500 rounded-md"
+                          className="mt-2 bg-black/40 border-gray-700 text-white focus:border-amber-500 focus:ring-amber-500 rounded-md"
                           required={isBetting}
                         />
                       </div>
-                      <div>
+                      {/* <div>
                         <p className="text-sm text-white mb-2 bg-gray-500 rounded-md p-2">
                           Note: You can click on "Start Game" and pay if you
                           don't want to manually send the transaction.
@@ -506,7 +543,7 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
                           className="mt-1 bg-black/40 border-gray-700 text-white focus:border-amber-500 focus:ring-amber-500 rounded-md"
                           required={isBetting}
                         />
-                      </div>
+                      </div> */}
                     </motion.div>
                   )}
                 </div>

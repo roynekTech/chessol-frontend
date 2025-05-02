@@ -25,6 +25,7 @@ import { localStorageHelper } from "../utils/localStorageHelper";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import { useWebSocketContext } from "../context/useWebSocketContext";
+import { useGetData } from "../utils/use-query-hooks";
 
 interface IJoinGameModalProps {
   open: boolean;
@@ -41,6 +42,24 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
   const { publicKey } = useWallet();
   const walletAddress = publicKey?.toBase58() || "";
   const { sendMessage, lastMessage } = useWebSocketContext();
+  const [retrievedGameDetails, setRetrievedGameDetails] = useState({});
+
+  // fetch game details
+  const { data: gameDetails, isLoading: isLoadingGameDetails } = useGetData(
+    `gameData/${gameId}`,
+    ["gameDetails", gameId],
+    {
+      enabled: !!gameId,
+    }
+  );
+
+  useEffect(() => {
+    if (gameDetails) {
+      setRetrievedGameDetails(gameDetails);
+    }
+  }, [gameDetails]);
+
+  console.log("gameDetails", gameDetails);
 
   useEffect(() => {
     if (!open) {

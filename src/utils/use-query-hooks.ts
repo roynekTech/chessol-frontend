@@ -18,6 +18,7 @@ export function useGetData<T>(
   queryKey: string[],
   options = {}
 ) {
+  console.log("useGetData", endpoint, queryKey);
   return useQuery<T>({
     queryKey,
     queryFn: async () => {

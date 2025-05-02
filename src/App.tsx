@@ -19,6 +19,7 @@ import { Lobby } from "./pages/Lobby";
 import { WebSocketProvider } from "./context/WebSocketContext";
 import HumanVsComputer from "./pages/game-play/HumanVsComputer";
 import HumanVsHumanV2 from "./pages/game-play/HumanVsHumanV2";
+import { Layout } from "./components/Layout";
 
 const queryClient = new QueryClient();
 
@@ -36,19 +37,24 @@ function App() {
         <WalletModalProvider>
           <QueryClientProvider client={queryClient}>
             <WebSocketProvider>
-              <Router>
-                <Routes>
-                  <Route path="/" element={<LandingPage />} />
-                  <Route path="/games" element={<OngoingGames />} />
-                  <Route path="/game/:id" element={<ChessGame />} />
-                  <Route path="/lobby" element={<Lobby />} />
-                  <Route path="/game-play/human" element={<HumanVsHumanV2 />} />
-                  <Route
-                    path="/game-play/computer"
-                    element={<HumanVsComputer />}
-                  />
-                </Routes>
-              </Router>
+              <Layout>
+                <Router>
+                  <Routes>
+                    <Route path="/" element={<LandingPage />} />
+                    <Route path="/games" element={<OngoingGames />} />
+                    <Route path="/game/:id" element={<ChessGame />} />
+                    <Route path="/lobby" element={<Lobby />} />
+                    <Route
+                      path="/game-play/human"
+                      element={<HumanVsHumanV2 />}
+                    />
+                    <Route
+                      path="/game-play/computer"
+                      element={<HumanVsComputer />}
+                    />
+                  </Routes>
+                </Router>
+              </Layout>
             </WebSocketProvider>
           </QueryClientProvider>
         </WalletModalProvider>

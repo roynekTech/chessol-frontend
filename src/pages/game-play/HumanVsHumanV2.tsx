@@ -830,8 +830,14 @@ export function HumanVsHumanV2() {
 
   // --- Resign logic ---
   const handleResign = useCallback(() => {
-    if (!gameId || !walletAddress || gameState.isEnded || resignSentRef.current)
+    if (
+      !gameId ||
+      !walletAddress ||
+      gameState.isEnded ||
+      resignSentRef.current
+    ) {
       return;
+    }
     resignSentRef.current = true;
     const resignMsg = {
       type: WebSocketMessageTypeEnum.Resign,
@@ -944,7 +950,6 @@ export function HumanVsHumanV2() {
               aria-label="Open chat"
             >
               {/* show number of unread messages for user */}
-
               <span
                 className="absolute -top-2 -right-2 min-w-[20px] h-[20px] flex items-center justify-center bg-red-600 text-white text-xs font-bold rounded-full shadow-lg z-10 px-1.5 border-2 border-white"
                 aria-label={`${unreadMessagesCount} unread messages`}

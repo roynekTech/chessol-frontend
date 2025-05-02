@@ -1,14 +1,10 @@
 1. Add sound for opponent move, capture , checkmate , so user know when to move
 2. for betting game , user have 5 seconds to move else we'd deduct points from user and use the point at game end for winner detection and points reduction
+3. Issue when build is done. it says "Buffer is not defined"
 
 # Remaining Tasks
 
 ## Implementation for human vs human v2
-
-- [ ] Captured Pieces Display
-  - [ ] Implement captured pieces UI in V2
-  - [ ] Show captured pieces for both players
-  - [ ] Add animations for piece captures
 
 ## Medium Priority
 
@@ -18,12 +14,6 @@
   - [ ] Add move sound effects
 
 ## Low Priority
-
-- [ ] Game State Persistence
-
-  - [ ] Save game state on page refresh
-  - [ ] Handle browser/tab close events
-  - [ ] Implement cleanup on unmount
 
 - [ ] UI Polish
   - [ ] Add loading states
