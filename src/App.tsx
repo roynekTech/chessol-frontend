@@ -24,7 +24,11 @@ import { Layout } from "./components/Layout";
 const queryClient = new QueryClient();
 
 function App() {
-  const network = WalletAdapterNetwork.Devnet;
+  const nodeEnv = import.meta.env.VITE_NODE_ENV;
+  const network =
+    nodeEnv === "production"
+      ? WalletAdapterNetwork.Mainnet
+      : WalletAdapterNetwork.Devnet;
 
   // You can also provide a custom RPC endpoint.
   const endpoint = useMemo(() => clusterApiUrl(network), [network]);

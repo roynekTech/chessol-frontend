@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MessageCircle, X, Loader2 } from "lucide-react";
 
+const NOTIFICATION_SOUND_SRC = "/new-notification.mp3";
+
 interface IChatMessage {
   sender: string;
   message: string;
@@ -37,6 +39,26 @@ export const ChatDropdown: React.FC<ChatDropdownProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
 
+  // sound ref
+  const notificationSoundRef = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    notificationSoundRef.current = new Audio(NOTIFICATION_SOUND_SRC);
+    notificationSoundRef.current.load();
+    return () => {
+      if (notificationSoundRef.current) {
+        notificationSoundRef.current.pause();
+        notificationSoundRef.current = null;
+      }
+    };
+  }, []);
+
+  const playNotificationSound = () => {
+    if (notificationSoundRef.current) {
+      notificationSoundRef.current.currentTime = 0;
+      notificationSoundRef.current.play();
+    }
+  };
+
   // Focus input when chat opens
   useEffect(() => {
     if (open && inputRef.current) {
@@ -65,6 +87,7 @@ export const ChatDropdown: React.FC<ChatDropdownProps> = ({
         ]);
         if (data.sender !== walletAddress) {
           setUnreadMessagesCount((prev) => prev + 1);
+          playNotificationSound();
         }
       }
     } catch {
