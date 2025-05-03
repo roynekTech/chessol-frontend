@@ -1,5 +1,4 @@
 import { LandingPage } from "./pages/LandingPage";
-import { ChessGame } from "./pages/ChessGame";
 import { OngoingGames } from "./pages/OngoingGames";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import "./index.css";
@@ -46,7 +45,6 @@ function App() {
                   <Routes>
                     <Route path="/" element={<LandingPage />} />
                     <Route path="/games" element={<OngoingGames />} />
-                    <Route path="/game/:id" element={<ChessGame />} />
                     <Route path="/lobby" element={<Lobby />} />
                     <Route
                       path="/game-play/human"

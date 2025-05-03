@@ -52,9 +52,15 @@ export function Lobby() {
     const details = localStorageHelper.getItem(
       LocalStorageKeysEnum.GameDetails
     ) as IGameDetailsLocalStorage | null;
+    if (!details) {
+      window.location.href = "/games";
+      return;
+    }
+
     if (details?.gameId) {
       setGameId(details.gameId);
     }
+
     // Pick a random tip
     setTip(CHESS_TIPS[Math.floor(Math.random() * CHESS_TIPS.length)]);
   }, []);
@@ -87,7 +93,8 @@ export function Lobby() {
   // Leave lobby: clear localStorage and navigate to ongoing games
   const handleLeave = () => {
     localStorageHelper.deleteItem(LocalStorageKeysEnum.GameDetails);
-    navigate("/games");
+    localStorageHelper.deleteItem(LocalStorageKeysEnum.GameState);
+    window.location.href = "/games";
   };
 
   return (

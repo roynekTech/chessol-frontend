@@ -10,11 +10,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { User, Bot, Swords, Trophy, Zap, Crown, Clock } from "lucide-react";
+import { User, Bot, Swords, Zap, Clock } from "lucide-react";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import {
+  GameModeEnum,
   IGameDetailsLocalStorage,
   IWSCreatedMessage,
   IWSErrorMessage,
@@ -39,22 +40,17 @@ interface GameModeModalProps {
 
 export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
   const navigate = useNavigate();
-  const [gameMode, setGameMode] = useState<"human" | "computer">("human");
-  const [computerColor, setComputerColor] = useState<"w" | "b">("b");
-  const [difficulty, setDifficulty] = useState<number>(10);
+  const [gameMode, setGameMode] = useState<GameModeEnum>(GameModeEnum.Human);
   const [duration, setDuration] = useState<number>(300000); // default 5 min
   const [isBetting, setIsBetting] = useState<boolean>(false);
   const [playerAmount, setPlayerAmount] = useState<string>("");
-  const [transactionId, setTransactionId] = useState<string>("");
+  const [txHash, setTxHash] = useState<string>("");
   const [side, setSide] = useState<"w" | "b">("w");
   const { publicKey } = useWallet();
   const walletAddress = publicKey?.toBase58() || "";
-
   const [userClickedCreate, setUserClickedCreate] = useState<boolean>(false);
   const [gameCreated, setGameCreated] = useState<boolean>(false);
-
   const { sendMessage, lastMessage } = useWebSocketContext();
-
   const { connection } = useConnection();
   const { sendTransaction } = useWallet();
   const [isSendingBetTx, setIsSendingBetTx] = useState(false);
@@ -87,10 +83,11 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
       const signature = await sendTransaction(transaction, connection);
       // Optionally, wait for confirmation
       await connection.confirmTransaction(signature, "confirmed");
-      setTransactionId(signature);
+      setTxHash(signature);
       toast.success("Bet transaction sent! Proceeding to create game...");
+      console.log("inside txHash", txHash);
       // Now proceed to create the game
-      setTimeout(() => handleStartGame(true, signature), 500); // Pass signature to handleStartGame
+      setTimeout(() => handleStartGame(true), 500);
     } catch (err: unknown) {
       console.error("Error sending bet transaction:", err);
 
@@ -141,53 +138,38 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
     }
   };
 
-  const handleStartGame = (autoProceed = false, txHash = "") => {
-    if (gameMode === "computer") {
-      // Navigate directly for computer game
-      const playerPlaysAs = computerColor === "w" ? "b" : "w"; // Determine human player color
-      const computerParams = new URLSearchParams({
-        difficulty: String(difficulty),
-        computerColor: computerColor,
-        playerColor: playerPlaysAs,
-        duration: String(duration),
-      });
-      console.log(
-        `Starting computer game with params: ${computerParams.toString()}`
-      );
-      navigate(`/game-play/computer?${computerParams.toString()}`);
+  const handleStartGame = (autoProceed = false) => {
+    // Validation: Check if wallet is connected
+    if (!walletAddress) {
+      toast.error("Please connect your wallet to create game.");
+      return;
+    }
+
+    setUserClickedCreate(true);
+
+    if (gameMode === GameModeEnum.Computer) {
+      navigate(`/game-play/computer`);
       onOpenChange(false); // Close modal after navigating
     } else {
-      if (
-        isBetting &&
-        (!playerAmount || !(autoProceed ? txHash : transactionId))
-      ) {
-        if (!autoProceed) {
-          handleBetTransaction();
-        }
+      if (isBetting && !txHash && playerAmount && !autoProceed) {
+        handleBetTransaction();
         return;
       }
-      // Validation: Check if wallet is connected
-      if (!walletAddress) {
-        toast.error("Please connect your wallet to create a human game.");
-        return;
-      }
+
+      console.log("start game txHash", txHash);
+
       // Prepare and send message to WebSocket server
       const message = {
         type: WebSocketMessageTypeEnum.Create,
         walletAddress,
-        side, // User's chosen side
+        side,
         duration,
         isBetting,
-        transactionId: isBetting
-          ? autoProceed
-            ? txHash
-            : transactionId
-          : null, // Use txHash if provided
-        playerAmount: isBetting ? Number(playerAmount) : null,
+        transactionId: txHash,
+        playerAmount: Number(playerAmount || 0),
       };
       console.log("Sending Create Game (Human) message:", message);
       sendMessage(JSON.stringify(message));
-      setUserClickedCreate(true);
       setGameCreated(false);
     }
   };
@@ -201,16 +183,8 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
     try {
       const messageData = JSON.parse(lastMessage.data);
 
-      if (
-        messageData.type === WebSocketMessageTypeEnum.Created &&
-        userClickedCreate
-      ) {
+      if (messageData.type === WebSocketMessageTypeEnum.Created) {
         const createdMessage = messageData as IWSCreatedMessage;
-        console.log("Received game creation response:", {
-          requestedColor: side,
-          assignedColor: createdMessage.color,
-          fullMessage: createdMessage,
-        });
 
         // Validate color assignment
         if (createdMessage.color !== side) {
@@ -240,10 +214,7 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
         // Navigate to lobby and wait for opponent to join
         navigate("/lobby");
         onOpenChange(false);
-      } else if (
-        messageData.type === WebSocketMessageTypeEnum.Error &&
-        userClickedCreate
-      ) {
+      } else if (messageData.type === WebSocketMessageTypeEnum.Error) {
         const errorMessage = messageData as IWSErrorMessage;
         console.error("Received Error message:", errorMessage);
         toast.error(
@@ -287,30 +258,6 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
     };
   }, [userClickedCreate, gameCreated]);
 
-  // Define difficulty info
-  const difficultyInfo = {
-    7: {
-      name: "Beginner",
-      elo: "~1600",
-      icon: <User className="h-5 w-5 text-green-400" />,
-    },
-    10: {
-      name: "Intermediate",
-      elo: "~2050",
-      icon: <Swords className="h-5 w-5 text-blue-400" />,
-    },
-    13: {
-      name: "Advanced",
-      elo: "~2500",
-      icon: <Trophy className="h-5 w-5 text-purple-400" />,
-    },
-    16: {
-      name: "Master",
-      elo: "~3000",
-      icon: <Crown className="h-5 w-5 text-amber-400" />,
-    },
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -345,9 +292,7 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
               </h3>
               <RadioGroup
                 defaultValue={gameMode}
-                onValueChange={(value) =>
-                  setGameMode(value as "human" | "computer")
-                }
+                onValueChange={(value: GameModeEnum) => setGameMode(value)}
                 className="grid grid-cols-2 gap-4"
               >
                 <div>
@@ -424,106 +369,100 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
               </RadioGroup>
             </motion.div>
 
-            {/* Human vs Human Specific Settings */}
-            {gameMode === "human" && (
-              <motion.div
-                key="human-settings"
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.3, delay: 0.1 }}
-                className="space-y-8 overflow-hidden"
-              >
-                <div>
-                  <h3 className="mb-3 font-medium text-gray-300 flex items-center">
+            <motion.div
+              key="human-settings"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3, delay: 0.1 }}
+              className="space-y-8 overflow-hidden"
+            >
+              <div>
+                <h3 className="mb-3 font-medium text-gray-300 flex items-center">
+                  <Zap className="mr-2 h-4 w-4 text-amber-400" />
+                  Choose Your Side
+                </h3>
+                <RadioGroup
+                  defaultValue={side}
+                  onValueChange={(value) => setSide(value as "w" | "b")}
+                  className="grid grid-cols-2 gap-4"
+                >
+                  <div>
+                    <RadioGroupItem
+                      value="w"
+                      id="side-white"
+                      className="peer sr-only"
+                    />
+                    <Label
+                      htmlFor="side-white"
+                      className="flex flex-col items-center justify-between rounded-xl border border-gray-700 bg-black/40 backdrop-blur-sm p-4 hover:bg-gray-800/40 hover:border-amber-700/50 hover:shadow-md hover:shadow-amber-900/10 peer-data-[state=checked]:border-amber-500 [&:has([data-state=checked])]:border-amber-500 [&:has([data-state=checked])]:bg-gradient-to-b [&:has([data-state=checked])]:from-amber-950/30 [&:has([data-state=checked])]:to-black/40 transition-all duration-200 cursor-pointer h-full"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-white/90 to-gray-200/70 flex items-center justify-center mb-2 border border-gray-400 ring-1 ring-gray-300/50 peer-data-[state=checked]:border-amber-300 peer-data-[state=checked]:ring-amber-400/60">
+                        <span className="text-black text-2xl font-bold">♔</span>
+                      </div>
+                      <div className="text-sm font-medium">White</div>
+                    </Label>
+                  </div>
+                  <div>
+                    <RadioGroupItem
+                      value="b"
+                      id="side-black"
+                      className="peer sr-only"
+                    />
+                    <Label
+                      htmlFor="side-black"
+                      className="flex flex-col items-center justify-between rounded-xl border border-gray-700 bg-black/40 backdrop-blur-sm p-4 hover:bg-gray-800/40 hover:border-amber-700/50 hover:shadow-md hover:shadow-amber-900/10 peer-data-[state=checked]:border-amber-500 [&:has([data-state=checked])]:border-amber-500 [&:has([data-state=checked])]:bg-gradient-to-b [&:has([data-state=checked])]:from-amber-950/30 [&:has([data-state=checked])]:to-black/40 transition-all duration-200 cursor-pointer h-full"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-900/90 to-black/90 flex items-center justify-center mb-2 border border-gray-700 ring-1 ring-gray-600/50 peer-data-[state=checked]:border-amber-600 peer-data-[state=checked]:ring-amber-500/60">
+                        <span className="text-white text-2xl font-bold">♚</span>
+                      </div>
+                      <div className="text-sm font-medium">Black</div>
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-medium text-gray-300 flex items-center">
                     <Zap className="mr-2 h-4 w-4 text-amber-400" />
-                    Choose Your Side
+                    Wager SOL (Optional)
                   </h3>
-                  <RadioGroup
-                    defaultValue={side}
-                    onValueChange={(value) => setSide(value as "w" | "b")}
-                    className="grid grid-cols-2 gap-4"
+                  <Switch
+                    checked={isBetting}
+                    onCheckedChange={setIsBetting}
+                    className="data-[state=checked]:bg-amber-500"
+                  />
+                </div>
+                {isBetting && (
+                  <motion.div
+                    key="betting-inputs"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="space-y-4 overflow-hidden mt-4"
                   >
                     <div>
-                      <RadioGroupItem
-                        value="w"
-                        id="side-white"
-                        className="peer sr-only"
-                      />
                       <Label
-                        htmlFor="side-white"
-                        className="flex flex-col items-center justify-between rounded-xl border border-gray-700 bg-black/40 backdrop-blur-sm p-4 hover:bg-gray-800/40 hover:border-amber-700/50 hover:shadow-md hover:shadow-amber-900/10 peer-data-[state=checked]:border-amber-500 [&:has([data-state=checked])]:border-amber-500 [&:has([data-state=checked])]:bg-gradient-to-b [&:has([data-state=checked])]:from-amber-950/30 [&:has([data-state=checked])]:to-black/40 transition-all duration-200 cursor-pointer h-full"
+                        htmlFor="bet-amount"
+                        className="mb-3 font-medium text-gray-300 flex items-center"
                       >
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-white/90 to-gray-200/70 flex items-center justify-center mb-2 border border-gray-400 ring-1 ring-gray-300/50 peer-data-[state=checked]:border-amber-300 peer-data-[state=checked]:ring-amber-400/60">
-                          <span className="text-black text-2xl font-bold">
-                            ♔
-                          </span>
-                        </div>
-                        <div className="text-sm font-medium">White</div>
+                        Bet Amount (SOL)
                       </Label>
-                    </div>
-                    <div>
-                      <RadioGroupItem
-                        value="b"
-                        id="side-black"
-                        className="peer sr-only"
+                      <Input
+                        id="bet-amount"
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        placeholder="e.g., 0.1"
+                        value={playerAmount}
+                        onChange={(e) => setPlayerAmount(e.target.value)}
+                        className="mt-2 bg-black/40 border-gray-700 text-white focus:border-amber-500 focus:ring-amber-500 rounded-md"
+                        required={isBetting}
                       />
-                      <Label
-                        htmlFor="side-black"
-                        className="flex flex-col items-center justify-between rounded-xl border border-gray-700 bg-black/40 backdrop-blur-sm p-4 hover:bg-gray-800/40 hover:border-amber-700/50 hover:shadow-md hover:shadow-amber-900/10 peer-data-[state=checked]:border-amber-500 [&:has([data-state=checked])]:border-amber-500 [&:has([data-state=checked])]:bg-gradient-to-b [&:has([data-state=checked])]:from-amber-950/30 [&:has([data-state=checked])]:to-black/40 transition-all duration-200 cursor-pointer h-full"
-                      >
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-900/90 to-black/90 flex items-center justify-center mb-2 border border-gray-700 ring-1 ring-gray-600/50 peer-data-[state=checked]:border-amber-600 peer-data-[state=checked]:ring-amber-500/60">
-                          <span className="text-white text-2xl font-bold">
-                            ♚
-                          </span>
-                        </div>
-                        <div className="text-sm font-medium">Black</div>
-                      </Label>
                     </div>
-                  </RadioGroup>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-medium text-gray-300 flex items-center">
-                      <Zap className="mr-2 h-4 w-4 text-amber-400" />
-                      Wager SOL (Optional)
-                    </h3>
-                    <Switch
-                      checked={isBetting}
-                      onCheckedChange={setIsBetting}
-                      className="data-[state=checked]:bg-amber-500"
-                    />
-                  </div>
-                  {isBetting && (
-                    <motion.div
-                      key="betting-inputs"
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="space-y-4 overflow-hidden mt-4"
-                    >
-                      <div>
-                        <Label
-                          htmlFor="bet-amount"
-                          className="mb-3 font-medium text-gray-300 flex items-center"
-                        >
-                          Bet Amount (SOL)
-                        </Label>
-                        <Input
-                          id="bet-amount"
-                          type="number"
-                          min="0.01"
-                          step="0.01"
-                          placeholder="e.g., 0.1"
-                          value={playerAmount}
-                          onChange={(e) => setPlayerAmount(e.target.value)}
-                          className="mt-2 bg-black/40 border-gray-700 text-white focus:border-amber-500 focus:ring-amber-500 rounded-md"
-                          required={isBetting}
-                        />
-                      </div>
-                      {/* <div>
+                    {/* <div>
                         <p className="text-sm text-white mb-2 bg-gray-500 rounded-md p-2">
                           Note: You can click on "Start Game" and pay if you
                           don't want to manually send the transaction.
@@ -544,102 +483,10 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
                           required={isBetting}
                         />
                       </div> */}
-                    </motion.div>
-                  )}
-                </div>
-              </motion.div>
-            )}
-
-            {/* Computer vs Player Specific Settings */}
-            {gameMode === "computer" && (
-              <motion.div
-                key="computer-settings"
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.3, delay: 0.1 }}
-                className="space-y-8 overflow-hidden"
-              >
-                <div>
-                  <h3 className="mb-3 font-medium text-gray-300 flex items-center">
-                    <Zap className="mr-2 h-4 w-4 text-amber-400" />
-                    Choose Your Color
-                  </h3>
-                  <RadioGroup
-                    value={computerColor === "w" ? "b" : "w"}
-                    onValueChange={(playerChoice) =>
-                      setComputerColor(playerChoice === "w" ? "b" : "w")
-                    }
-                    className="grid grid-cols-2 gap-4"
-                  >
-                    <div>
-                      <RadioGroupItem
-                        value="w"
-                        id="play-white"
-                        className="peer sr-only"
-                      />
-                      <Label
-                        htmlFor="play-white"
-                        className="flex items-center justify-center rounded-xl border border-gray-700 bg-black/40 backdrop-blur-sm p-4 hover:bg-gray-800/40 hover:border-amber-700/50 peer-data-[state=checked]:border-amber-500 [&:has([data-state=checked])]:border-amber-500 [&:has([data-state=checked])]:bg-gradient-to-b [&:has([data-state=checked])]:from-amber-950/30 [&:has([data-state=checked])]:to-black/40 transition-all duration-200 cursor-pointer h-full"
-                      >
-                        <div className="flex items-center justify-center bg-gradient-to-br from-white/90 to-gray-200/70 text-black rounded-full w-8 h-8 mr-3 ring-1 ring-gray-300/50 border border-gray-400 peer-data-[state=checked]:border-amber-300 peer-data-[state=checked]:ring-amber-400/60">
-                          ♟
-                        </div>
-                        <div className="text-sm font-medium">White</div>
-                      </Label>
-                    </div>
-                    <div>
-                      <RadioGroupItem
-                        value="b"
-                        id="play-black"
-                        className="peer sr-only"
-                      />
-                      <Label
-                        htmlFor="play-black"
-                        className="flex items-center justify-center rounded-xl border border-gray-700 bg-black/40 backdrop-blur-sm p-4 hover:bg-gray-800/40 hover:border-amber-700/50 peer-data-[state=checked]:border-amber-500 [&:has([data-state=checked])]:border-amber-500 [&:has([data-state=checked])]:bg-gradient-to-b [&:has([data-state=checked])]:from-amber-950/30 [&:has([data-state=checked])]:to-black/40 transition-all duration-200 cursor-pointer h-full"
-                      >
-                        <div className="flex items-center justify-center bg-gradient-to-br from-gray-900/90 to-black/90 text-white rounded-full w-8 h-8 mr-3 ring-1 ring-gray-600/50 border border-gray-700 peer-data-[state=checked]:border-amber-600 peer-data-[state=checked]:ring-amber-500/60">
-                          ♟
-                        </div>
-                        <div className="text-sm font-medium">Black</div>
-                      </Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-
-                <div>
-                  <h3 className="mb-3 font-medium text-gray-300 flex items-center">
-                    <Zap className="mr-2 h-4 w-4 text-amber-400" />
-                    Select Difficulty
-                  </h3>
-                  <RadioGroup
-                    defaultValue={String(difficulty)}
-                    onValueChange={(value) => setDifficulty(Number(value))}
-                    className="grid grid-cols-2 sm:grid-cols-4 gap-3"
-                  >
-                    {Object.entries(difficultyInfo).map(([level, info]) => (
-                      <div key={level}>
-                        <RadioGroupItem
-                          value={level}
-                          id={info.name.toLowerCase()}
-                          className="peer sr-only"
-                        />
-                        <Label
-                          htmlFor={info.name.toLowerCase()}
-                          className="flex flex-col items-center justify-between rounded-lg border border-gray-700 bg-black/40 backdrop-blur-sm p-3 hover:bg-gray-800/40 hover:border-amber-700/50 peer-data-[state=checked]:border-amber-500 [&:has([data-state=checked])]:border-amber-500 [&:has([data-state=checked])]:bg-gradient-to-b [&:has([data-state=checked])]:from-amber-950/30 [&:has([data-state=checked])]:to-black/40 transition-all duration-200 cursor-pointer text-center h-full"
-                        >
-                          <div className="mb-1">{info.icon}</div>
-                          <div className="text-sm font-medium">{info.name}</div>
-                          <div className="text-xs text-amber-500/80 font-medium">
-                            {info.elo}
-                          </div>
-                        </Label>
-                      </div>
-                    ))}
-                  </RadioGroup>
-                </div>
-              </motion.div>
-            )}
+                  </motion.div>
+                )}
+              </div>
+            </motion.div>
 
             {/* Action Button */}
             <motion.div
@@ -649,49 +496,15 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
               className="pt-4"
             >
               <Button
-                className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-semibold py-4 sm:py-6 text-lg rounded-xl shadow-lg shadow-amber-900/20 transition-all duration-300 transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black focus:ring-amber-400 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
+                className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-semibold py-4 sm:py-6 text-lg rounded-xl shadow-lg shadow-amber-900/20 transition-all duration-300 transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black focus:ring-amber-400 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100 cursor-pointer"
                 onClick={() => handleStartGame()}
                 disabled={
                   isSendingBetTx ||
-                  (gameMode === "human" && isBetting && !playerAmount) ||
+                  (isBetting && !playerAmount) ||
                   userClickedCreate
                 }
               >
-                {isSendingBetTx ? (
-                  <>
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{
-                        duration: 1,
-                        repeat: Infinity,
-                        ease: "linear",
-                      }}
-                      style={{ display: "inline-block", marginRight: "8px" }}
-                    >
-                      <svg
-                        className="animate-spin h-5 w-5 text-white"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                      </svg>
-                    </motion.div>
-                    Sending bet transaction...
-                  </>
-                ) : userClickedCreate ? (
+                {userClickedCreate ? (
                   <>
                     <motion.div
                       animate={{ rotate: 360 }}

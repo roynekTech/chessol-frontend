@@ -5,6 +5,11 @@ export enum SideEnum {
   Random = "random",
 }
 
+export enum GameModeEnum {
+  Human = "human",
+  Computer = "computer",
+}
+
 export enum GameStateEnum {
   Waiting = "waiting",
   Running = "running",
