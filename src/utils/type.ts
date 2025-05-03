@@ -193,8 +193,9 @@ export interface IWSResignMessage {
 
 export interface IWSGameEndedMessage {
   type: WebSocketMessageTypeEnum.GameEnded;
-  winner?: "w" | "b" | "draw" | "opponent"; // allow 'opponent' for resign
+  winnerColor: "w" | "b" | null;
   reason: string;
+  winner: "string"; // winner wallet address
 }
 
 // 9. Pair Request

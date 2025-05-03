@@ -233,21 +233,24 @@ export function HumanVsHumanV2() {
   }, [navigate]);
 
   // --- Helper: Format Game Ended Message ---
-  function processGameEndedMessage(
-    endedMsg: IWSGameEndedMessage,
-    playerColor: Color | null
-  ): { winner: Color | "draw" | null; statusText: string } {
+  function processGameEndedMessage(endedMsg: IWSGameEndedMessage): {
+    winner: Color | "draw" | null;
+    statusText: string;
+  } {
     let statusText = "Game Over!";
     let winner: Color | "draw" | null = null;
 
-    if (endedMsg.reason === "checkmate") {
-      winner = endedMsg.winner === "w" ? "w" : "b";
+    if (endedMsg.winnerColor === null) {
+      statusText = "Game ended. Draw!";
+      winner = "draw";
+    } else if (endedMsg.reason === "checkmate") {
+      winner = endedMsg.winnerColor;
       statusText = `Checkmate! ${winner === "w" ? "White" : "Black"} wins`;
     } else if (endedMsg.reason === "resignation") {
-      winner = endedMsg.winner === "w" ? "w" : "b";
+      winner = endedMsg.winnerColor;
       statusText = `${winner === "w" ? "White" : "Black"} wins by resignation`;
     } else if (endedMsg.reason === "timeout") {
-      winner = endedMsg.winner === "w" ? "w" : "b";
+      winner = endedMsg.winnerColor;
       statusText = `${winner === "w" ? "White" : "Black"} wins on time`;
     } else if (
       [
@@ -260,16 +263,8 @@ export function HumanVsHumanV2() {
       statusText = `Draw by ${endedMsg.reason.replace("_", " ")}!`;
       winner = "draw";
     } else {
-      // Fallback: handle 'opponent' or unknown
-      if (endedMsg.winner === "opponent" && playerColor) {
-        winner = playerColor === "w" ? "b" : "w";
-        statusText = `${
-          winner === "w" ? "White" : "Black"
-        } wins by resignation`;
-      } else {
-        winner = endedMsg.winner as Color | "draw" | null;
-        statusText = `Game ended. ${endedMsg.winner} wins. Reason: ${endedMsg.reason}`;
-      }
+      winner = endedMsg.winner as Color | "draw" | null;
+      statusText = `Game ended. ${endedMsg.winner} wins. Reason: ${endedMsg.reason}`;
     }
     return { winner, statusText };
   }
@@ -358,10 +353,7 @@ export function HumanVsHumanV2() {
 
         case WebSocketMessageTypeEnum.GameEnded: {
           const endedMsg = messageData as IWSGameEndedMessage;
-          const { winner, statusText } = processGameEndedMessage(
-            endedMsg,
-            playerColor
-          );
+          const { winner, statusText } = processGameEndedMessage(endedMsg);
           setGameState((prev) => ({
             ...prev,
             winner,
