@@ -280,3 +280,11 @@ export interface IGetBestMoveResponse {
   fen: string;
   best_move: string;
 }
+
+export interface IGetGameDataMemResponse {
+  state: boolean;
+  duration: number;
+  game_state: string;
+  bet_status: boolean;
+  amount: number;
+}

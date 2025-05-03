@@ -11,8 +11,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LogIn, Info, DollarSign, Hash } from "lucide-react";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { LogIn, Info, DollarSign } from "lucide-react";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import {
   IGameDetailsLocalStorage,
   LocalStorageKeysEnum,
@@ -20,12 +20,19 @@ import {
   IWSJoinedMessage,
   IWSErrorMessage,
   IWSJoinMessage,
+  IGetGameDataMemResponse,
 } from "../utils/type";
 import { localStorageHelper } from "../utils/localStorageHelper";
 import { toast } from "sonner";
-import { Switch } from "@/components/ui/switch";
 import { useWebSocketContext } from "../context/useWebSocketContext";
 import { useGetData } from "../utils/use-query-hooks";
+import { ESCROW_ADDRESS } from "../utils/constants";
+import {
+  LAMPORTS_PER_SOL,
+  PublicKey,
+  SystemProgram,
+  Transaction,
+} from "@solana/web3.js";
 
 interface IJoinGameModalProps {
   open: boolean;
@@ -35,73 +42,190 @@ interface IJoinGameModalProps {
 export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
   const navigate = useNavigate();
   const [gameId, setGameId] = useState<string>("");
+  const [debouncedGameId, setDebouncedGameId] = useState<string>("");
   const [isBettingGame, setIsBettingGame] = useState<boolean>(false);
-  const [requiredAmount, setRequiredAmount] = useState<string>("");
-  const [transactionId, setTransactionId] = useState<string>("");
   const [isJoining, setIsJoining] = useState<boolean>(false);
   const { publicKey } = useWallet();
+  const { sendTransaction } = useWallet();
+  const { connection } = useConnection();
   const walletAddress = publicKey?.toBase58() || "";
   const { sendMessage, lastMessage } = useWebSocketContext();
-  const [retrievedGameDetails, setRetrievedGameDetails] = useState({});
+  const [fetchGameErrorMsg, setFetchGameErrorMsg] = useState<string>("");
+  const [retrievedGameDetails, setRetrievedGameDetails] =
+    useState<IGetGameDataMemResponse | null>(null);
 
   // fetch game details
-  const { data: gameDetails, isLoading: isLoadingGameDetails } = useGetData(
-    `gameData/${gameId}`,
-    ["gameDetails", gameId],
+  const {
+    data: gameDetails,
+    isLoading: isLoadingGameDetails,
+    isFetched,
+  } = useGetData<IGetGameDataMemResponse>(
+    `gameDataMem/${debouncedGameId}`,
+    ["gameDetails", debouncedGameId],
     {
-      enabled: !!gameId,
+      enabled: !!debouncedGameId,
     }
   );
 
+  const handleBetTransaction = async () => {
+    if (!walletAddress || !publicKey) {
+      toast.error("Please connect your wallet.");
+      return;
+    }
+    try {
+      const escrowPubkey = new PublicKey(ESCROW_ADDRESS);
+      const lamports = Math.floor(Number(0.5) * LAMPORTS_PER_SOL);
+      const transaction = new Transaction().add(
+        SystemProgram.transfer({
+          fromPubkey: publicKey,
+          toPubkey: escrowPubkey,
+          lamports,
+        })
+      );
+
+      // Prompt wallet to sign and send
+      const signature = await sendTransaction(transaction, connection);
+      // wait for confirmation of transaction
+      await connection.confirmTransaction(signature, "confirmed");
+      return signature;
+    } catch (err: unknown) {
+      console.error("Error sending bet transaction:", err);
+
+      let errorMsg =
+        "An unexpected error occurred while sending your bet transaction.";
+      let logs: string[] | undefined = undefined;
+
+      // Check for Solana WalletSendTransactionError (or similar)
+      if (
+        err &&
+        typeof err === "object" &&
+        "getLogs" in err &&
+        typeof err.getLogs === "function"
+      ) {
+        logs = await err.getLogs();
+      }
+
+      if (err instanceof Error) {
+        errorMsg = err.message;
+      } else if (typeof err === "string") {
+        errorMsg = err;
+      }
+
+      // Friendly, actionable error message for the user
+      let userMessage = "Transaction failed. ";
+      if (
+        errorMsg.includes("Simulation failed") ||
+        errorMsg.includes("debit an account")
+      ) {
+        userMessage +=
+          "Please ensure your wallet has enough SOL to cover the bet and transaction fees. " +
+          "If the problem persists, try reconnecting your wallet or refreshing the page.";
+      } else {
+        userMessage += errorMsg;
+      }
+
+      // Show toast to user
+      toast.error(userMessage);
+
+      // Log full error and logs for developer debugging
+      console.error(
+        "Error sending bet transaction:",
+        err,
+        logs ? `\nSolana logs:\n${logs.join("\n")}` : ""
+      );
+    }
+  };
+
+  // handle fetch game details
   useEffect(() => {
+    console.log("fetching game details");
     if (gameDetails) {
+      setFetchGameErrorMsg("");
+      if (
+        [
+          "checkmate",
+          "aborted",
+          "abandoned",
+          "draw",
+          "stalemate",
+          "resign",
+          "ended",
+        ].includes(gameDetails?.game_state)
+      ) {
+        toast.error("Game is already ended, please provide another game ID.");
+        setTimeout(() => {
+          navigate("/games");
+        }, 2000);
+        return;
+      }
+
+      setIsBettingGame(gameDetails.bet_status);
       setRetrievedGameDetails(gameDetails);
     }
-  }, [gameDetails]);
 
-  console.log("gameDetails", gameDetails);
+    if (!gameDetails && gameId && isFetched && !isLoadingGameDetails) {
+      setFetchGameErrorMsg("Please provide a valid game ID.");
+    }
+  }, [gameDetails, isLoadingGameDetails, isFetched]);
 
   useEffect(() => {
     if (!open) {
       setGameId("");
       setIsBettingGame(false);
-      setRequiredAmount("");
-      setTransactionId("");
       setIsJoining(false);
     }
   }, [open]);
 
+  // handle debounce game id
+  useEffect(() => {
+    setFetchGameErrorMsg("");
+    const handler = setTimeout(() => {
+      setDebouncedGameId(gameId);
+    }, 400); // 400ms debounce
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [gameId]);
+
   // function to handle join game
   const handleJoinGame = () => {
     if (!gameId || !walletAddress) {
-      toast.error("Game ID and wallet are required.");
+      toast.error("Please provide a valid game ID and connect your wallet.");
       return;
     }
-    if (isBettingGame && (!requiredAmount || !transactionId)) {
-      toast.error(
-        "Amount and transaction hash are required for betting games."
-      );
-      return;
-    }
+
     setIsJoining(true);
-    setTimeout(() => {
+
+    (async () => {
+      const signature = gameDetails?.bet_status
+        ? await handleBetTransaction()
+        : "";
+      console.log("signature", signature);
+
+      const message: IWSJoinMessage = {
+        type: WebSocketMessageTypeEnum.Join,
+        gameId: gameId,
+        walletAddress: walletAddress,
+        transactionId: signature,
+        playerAmount: retrievedGameDetails?.amount,
+      };
+
+      sendMessage(JSON.stringify(message));
+    })();
+  };
+
+  // check for joining timeout
+  useEffect(() => {
+    const timeout = setTimeout(() => {
       if (isJoining) {
         setIsJoining(false);
-        toast.error("Join request timed out. Please try again.");
+        toast.error("There was an error joining the game. Please try again.");
       }
-    }, 10000); // 10 seconds timeout
+    }, 2 * 60 * 1000); // 2 minutes timeout
 
-    const message: IWSJoinMessage = {
-      type: WebSocketMessageTypeEnum.Join,
-      gameId: gameId,
-      walletAddress: walletAddress,
-    };
-    if (isBettingGame) {
-      message.transactionId = transactionId;
-      message.playerAmount = Number(requiredAmount);
-    }
-    sendMessage(JSON.stringify(message));
-  };
+    return () => clearTimeout(timeout);
+  }, [isJoining]);
 
   // listen to websocket and handle join event
   useEffect(() => {
@@ -152,10 +276,6 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
     }
   }, [lastMessage]);
 
-  const canJoin = isBettingGame
-    ? !!transactionId && !!requiredAmount && !isNaN(Number(requiredAmount))
-    : !!gameId;
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -195,10 +315,13 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
             <div>
               <Label
                 htmlFor="game-id"
-                className="text-gray-300 flex items-center mb-1"
+                className="text-gray-300 flex items-center mb-3"
               >
                 <Info className="mr-2 h-4 w-4 text-blue-400" /> Game ID
               </Label>
+              {fetchGameErrorMsg && gameId && (
+                <p className="text-red-500 text-sm mb-2">{fetchGameErrorMsg}</p>
+              )}
               <Input
                 id="game-id"
                 type="text"
@@ -208,21 +331,11 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
                 className="mt-1 bg-gray-900/50 border-gray-700 text-gray-300"
                 autoFocus
               />
-            </div>
-
-            {/* Betting Toggle */}
-            <div className="flex items-center gap-3 mt-2">
-              <Switch
-                checked={isBettingGame}
-                onCheckedChange={setIsBettingGame}
-                id="betting-switch"
-              />
-              <Label
-                htmlFor="betting-switch"
-                className="text-amber-400 font-medium"
-              >
-                Betting Game?
-              </Label>
+              {isLoadingGameDetails && !isFetched && (
+                <p className="text-gray-500 text-sm mt-2">
+                  Loading game details...
+                </p>
+              )}
             </div>
 
             {/* Betting Fields */}
@@ -239,42 +352,24 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
                     id="required-amount"
                     type="number"
                     min={0}
-                    value={requiredAmount}
-                    onChange={(e) => setRequiredAmount(e.target.value)}
+                    value={retrievedGameDetails?.amount}
                     placeholder="e.g. 0.5"
                     className="mt-1 bg-black/40 border-gray-700 text-white focus:border-amber-500 focus:ring-amber-500"
+                    disabled
                   />
                 </div>
-                <div>
-                  <Label
-                    htmlFor="tx-hash-join"
-                    className="text-gray-300 flex items-center mb-1"
-                  >
-                    <Hash className="mr-2 h-4 w-4 text-purple-400" />{" "}
-                    Transaction Hash
-                  </Label>
-                  <Input
-                    id="tx-hash-join"
-                    type="text"
-                    placeholder="Paste your deposit transaction hash"
-                    value={transactionId}
-                    onChange={(e) => setTransactionId(e.target.value)}
-                    className="mt-1 bg-black/40 border-gray-700 text-white focus:border-amber-500 focus:ring-amber-500"
-                    required
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Enter the hash of the transaction where you sent the
-                    required amount.
-                  </p>
-                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  You will be prompted to approve the transaction automatically
+                  when joining a betting game.
+                </p>
               </div>
             )}
 
             {/* Action Button */}
             <Button
-              className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 font-semibold py-6 rounded-xl shadow-lg shadow-amber-900/20 transition-all duration-300 transform hover:translate-y-[-2px] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 font-semibold py-6 rounded-xl shadow-lg shadow-amber-900/20 transition-all duration-300 transform hover:translate-y-[-2px] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               onClick={handleJoinGame}
-              disabled={isJoining || !canJoin || !walletAddress}
+              disabled={isJoining || !walletAddress || !gameDetails}
             >
               {isJoining ? (
                 <motion.div

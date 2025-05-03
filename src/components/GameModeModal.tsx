@@ -44,7 +44,6 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
   const [duration, setDuration] = useState<number>(300000); // default 5 min
   const [isBetting, setIsBetting] = useState<boolean>(false);
   const [playerAmount, setPlayerAmount] = useState<string>("");
-  const [txHash, setTxHash] = useState<string>("");
   const [side, setSide] = useState<"w" | "b">("w");
   const { publicKey } = useWallet();
   const walletAddress = publicKey?.toBase58() || "";
@@ -53,7 +52,6 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
   const { sendMessage, lastMessage } = useWebSocketContext();
   const { connection } = useConnection();
   const { sendTransaction } = useWallet();
-  const [isSendingBetTx, setIsSendingBetTx] = useState(false);
 
   const handleBetTransaction = async () => {
     if (!walletAddress || !publicKey) {
@@ -68,7 +66,6 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
       toast.error("Please enter a valid bet amount.");
       return;
     }
-    setIsSendingBetTx(true);
     try {
       const escrowPubkey = new PublicKey(ESCROW_ADDRESS);
       const lamports = Math.floor(Number(playerAmount) * LAMPORTS_PER_SOL);
@@ -83,11 +80,7 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
       const signature = await sendTransaction(transaction, connection);
       // Optionally, wait for confirmation
       await connection.confirmTransaction(signature, "confirmed");
-      setTxHash(signature);
-      toast.success("Bet transaction sent! Proceeding to create game...");
-      console.log("inside txHash", txHash);
-      // Now proceed to create the game
-      setTimeout(() => handleStartGame(true), 500);
+      return signature;
     } catch (err: unknown) {
       console.error("Error sending bet transaction:", err);
 
@@ -133,8 +126,6 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
         err,
         logs ? `\nSolana logs:\n${logs.join("\n")}` : ""
       );
-    } finally {
-      setIsSendingBetTx(false);
     }
   };
 
@@ -147,31 +138,38 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
 
     setUserClickedCreate(true);
 
-    if (gameMode === GameModeEnum.Computer) {
-      navigate(`/game-play/computer`);
-      onOpenChange(false); // Close modal after navigating
-    } else {
-      if (isBetting && !txHash && playerAmount && !autoProceed) {
-        handleBetTransaction();
-        return;
+    (async () => {
+      if (gameMode === GameModeEnum.Computer) {
+        navigate(`/game-play/computer`);
+        onOpenChange(false); // Close modal after navigating
+      } else {
+        let txHash = "";
+        if (isBetting && playerAmount && !autoProceed) {
+          txHash = (await handleBetTransaction()) || "";
+          console.log("txHash", txHash);
+          if (!txHash) {
+            setUserClickedCreate(false);
+            return;
+          }
+        }
+
+        console.log("start game txHash", txHash);
+
+        // Prepare and send message to WebSocket server
+        const message = {
+          type: WebSocketMessageTypeEnum.Create,
+          walletAddress,
+          side,
+          duration,
+          isBetting,
+          transactionId: txHash,
+          playerAmount: Number(playerAmount || 0),
+        };
+        console.log("Sending Create Game (Human) message:", message);
+        sendMessage(JSON.stringify(message));
+        setGameCreated(false);
       }
-
-      console.log("start game txHash", txHash);
-
-      // Prepare and send message to WebSocket server
-      const message = {
-        type: WebSocketMessageTypeEnum.Create,
-        walletAddress,
-        side,
-        duration,
-        isBetting,
-        transactionId: txHash,
-        playerAmount: Number(playerAmount || 0),
-      };
-      console.log("Sending Create Game (Human) message:", message);
-      sendMessage(JSON.stringify(message));
-      setGameCreated(false);
-    }
+    })();
   };
 
   // listen to ws
@@ -248,7 +246,7 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
           );
           setUserClickedCreate(false);
         }
-      }, 15000);
+      }, 3 * 60 * 1000); // 3 minutes
     }
 
     return () => {
@@ -347,7 +345,7 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
                 onValueChange={(value) => setDuration(Number(value))}
                 className="grid grid-cols-4 gap-3"
               >
-                {[180000, 300000, 600000, 900000].map((ms) => {
+                {[60000, 180000, 300000, 600000, 900000].map((ms) => {
                   const minutes = ms / 60000;
                   return (
                     <div key={ms}>
@@ -498,11 +496,7 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
               <Button
                 className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-semibold py-4 sm:py-6 text-lg rounded-xl shadow-lg shadow-amber-900/20 transition-all duration-300 transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black focus:ring-amber-400 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100 cursor-pointer"
                 onClick={() => handleStartGame()}
-                disabled={
-                  isSendingBetTx ||
-                  (isBetting && !playerAmount) ||
-                  userClickedCreate
-                }
+                disabled={(isBetting && !playerAmount) || userClickedCreate}
               >
                 {userClickedCreate ? (
                   <>

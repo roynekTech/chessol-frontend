@@ -173,7 +173,7 @@ export function Lobby() {
           {/* Leave Lobby button */}
           <Button
             variant="outline"
-            className="w-full py-3 rounded-xl border border-gray-700 hover:border-amber-400 bg-black/70 hover:bg-gray-800/70 text-gray-300 hover:text-amber-400 font-semibold shadow flex items-center justify-center gap-2 transition-all duration-200 hover:shadow-amber-500/20 focus:ring-2 focus:ring-offset-2 focus:ring-offset-black focus:ring-amber-400 focus:outline-none backdrop-blur-md"
+            className="w-full py-3 rounded-xl border border-gray-700 hover:border-amber-400 bg-black/70 hover:bg-gray-800/70 text-gray-300 hover:text-amber-400 font-semibold shadow flex items-center justify-center gap-2 transition-all duration-200 hover:shadow-amber-500/20 focus:ring-2 focus:ring-offset-2 focus:ring-offset-black focus:ring-amber-400 focus:outline-none backdrop-blur-md cursor-pointer"
             onClick={handleLeave}
             aria-label="Leave Lobby"
           >
