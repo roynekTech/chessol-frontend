@@ -260,7 +260,13 @@ export enum LocalStorageKeysEnum {
   GameState = "gameState",
 }
 
+export enum LocalStorageRoomTypeEnum {
+  PLAYER = "player",
+  SPECTATOR = "spectator",
+}
+
 export interface IGameDetailsLocalStorage {
+  roomType: LocalStorageRoomTypeEnum;
   gameId: string;
   fen: string;
   isBetting: boolean;
@@ -288,4 +294,17 @@ export interface IGetGameDataMemResponse {
   game_state: string;
   bet_status: boolean;
   amount: number;
+}
+
+export interface IListGamesResponse {
+  player1: string;
+  player2: string;
+  bet_status: number;
+  player_amount: string;
+  duration: number;
+  current_fen: string;
+  time_difference: number | null;
+  game_hash: string;
+  game_state: string;
+  spectator_count: number;
 }

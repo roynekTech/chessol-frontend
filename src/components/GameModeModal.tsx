@@ -20,6 +20,7 @@ import {
   IWSCreatedMessage,
   IWSErrorMessage,
   LocalStorageKeysEnum,
+  LocalStorageRoomTypeEnum,
   WebSocketMessageTypeEnum,
 } from "../utils/type";
 import { localStorageHelper } from "../utils/localStorageHelper";
@@ -31,7 +32,7 @@ import {
   Transaction,
   LAMPORTS_PER_SOL,
 } from "@solana/web3.js";
-import { ESCROW_ADDRESS } from "../utils/constants";
+import { ESCROW_ADDRESS, PAGE_ROUTES } from "../utils/constants";
 
 interface GameModeModalProps {
   open: boolean;
@@ -196,6 +197,7 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
         }
 
         const data: IGameDetailsLocalStorage = {
+          roomType: LocalStorageRoomTypeEnum.PLAYER,
           gameId: createdMessage.gameId,
           fen: createdMessage.fen,
           isBetting: createdMessage.isBetting,
@@ -210,7 +212,7 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
         setUserClickedCreate(false);
 
         // Navigate to lobby and wait for opponent to join
-        navigate("/lobby");
+        navigate(PAGE_ROUTES.Lobby);
         onOpenChange(false);
       } else if (messageData.type === WebSocketMessageTypeEnum.Error) {
         const errorMessage = messageData as IWSErrorMessage;

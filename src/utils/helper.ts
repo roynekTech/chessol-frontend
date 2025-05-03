@@ -1,4 +1,5 @@
 import { Chess, Color, PieceSymbol } from "chess.js";
+import { GameStateEnum } from "./type";
 
 export const helperUtil = {
   // Format time from seconds to MM:SS
@@ -48,5 +49,23 @@ export const helperUtil = {
 
     // If either side's piece count decreased, a capture occurred
     return newCounts.w < prevCounts.w || newCounts.b < prevCounts.b;
+  },
+
+  shortenWalletAddress: (walletAddress: string): string => {
+    return walletAddress.slice(0, 4) + "..." + walletAddress.slice(-4);
+  },
+
+  checkGameEnded: (gameStatus: string) => {
+    if (
+      [
+        GameStateEnum.Draw,
+        GameStateEnum.Completed,
+        GameStateEnum.Abandoned,
+      ].includes(gameStatus as GameStateEnum)
+    ) {
+      return true;
+    }
+
+    return false;
   },
 };

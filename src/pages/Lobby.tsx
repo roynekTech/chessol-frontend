@@ -24,6 +24,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { PAGE_ROUTES } from "../utils/constants";
 
 // Array of chess tips/facts for engagement
 const CHESS_TIPS = [
@@ -53,7 +54,7 @@ export function Lobby() {
       LocalStorageKeysEnum.GameDetails
     ) as IGameDetailsLocalStorage | null;
     if (!details) {
-      window.location.href = "/games";
+      window.location.href = PAGE_ROUTES.OngoingGames;
       return;
     }
 
@@ -79,7 +80,7 @@ export function Lobby() {
       messageData.gameId === gameId
     ) {
       // Optionally, show a quick message or spinner here
-      navigate(`/game-play/human`);
+      navigate(PAGE_ROUTES.GamePlayHuman);
     }
   }, [lastMessage, gameId, navigate]);
 
@@ -94,7 +95,7 @@ export function Lobby() {
   const handleLeave = () => {
     localStorageHelper.deleteItem(LocalStorageKeysEnum.GameDetails);
     localStorageHelper.deleteItem(LocalStorageKeysEnum.GameState);
-    window.location.href = "/games";
+    window.location.href = PAGE_ROUTES.OngoingGames;
   };
 
   return (

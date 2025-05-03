@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
-  Plus,
   Eye,
   Bot,
   Monitor,
@@ -14,7 +13,10 @@ import {
 } from "lucide-react";
 import { GameModeModal } from "@/components/GameModeModal";
 import { JoinGameModal } from "@/components/JoinGameModal";
-import { DateTime } from "luxon";
+import { IListGamesResponse } from "../utils/type";
+import { API_PATHS } from "../utils/constants";
+import { useGetData } from "../utils/use-query-hooks";
+import { helperUtil } from "../utils/helper";
 
 interface IMove {
   from: string;
@@ -49,66 +51,31 @@ export function OngoingGames() {
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
-  const gamesData: { data: IGame[] } = { data: [] };
+
+  const { data: gamesData, isLoading: isLoadingGames } = useGetData<{
+    data: IListGamesResponse[];
+  }>(API_PATHS.listGames(), ["ongoingGames"], {
+    refetchInterval: 3 * 60 * 1000, // 3 minutes
+  });
   const games = gamesData?.data || [];
-  const isLoading = false; // Replace with actual loading state
-  const error = false; // Replace with actual error state
+  console.log("games", games);
 
-  const getGameTitle = (game: IGame) => {
-    if (game.gameType === "AI_VS_AI") {
-      return `AI vs AI`;
-    } else if (game.gameType === "HUMAN_VS_AI") {
-      return "Human vs AI";
-    }
-    return "Human vs Human";
+  const getTimeRemaining = (
+    duration: number,
+    time_difference: number | null
+  ) => {
+    if (!duration || time_difference === null) return "No time limit";
+    // duration is in ms, time_difference in ms
+    const remaining = duration - time_difference;
+    if (remaining <= 0) return "Time expired";
+    const minutes = Math.floor(remaining / 60000);
+    const seconds = Math.floor((remaining % 60000) / 1000);
+    return `${minutes}m ${seconds}s`;
   };
 
-  const getGameIcon = (game: IGame) => {
-    if (game.gameType === "AI_VS_AI") {
-      return <Bot className="h-4 w-4 text-purple-400 mr-2" />;
-    } else if (game.gameType === "HUMAN_VS_AI") {
-      return <Bot className="h-4 w-4 text-blue-400 mr-2" />;
-    }
-    return <Monitor className="h-4 w-4 text-green-400 mr-2" />;
-  };
-
-  const getTimeRemaining = (endTime?: Date) => {
-    if (!endTime) return "No time limit";
-
-    const end = DateTime.fromJSDate(new Date(endTime));
-    const now = DateTime.now();
-
-    if (now > end) return "Time expired";
-
-    const diff = end.diff(now, ["minutes", "seconds"]);
-    return `${diff.minutes}m ${Math.floor(diff.seconds)}s`;
-  };
-
-  const getDifficultyLabel = (difficulty?: string) => {
-    if (!difficulty) return null;
-
-    const colors = {
-      easy: "bg-green-900/40 text-green-400",
-      medium: "bg-yellow-900/40 text-yellow-400",
-      hard: "bg-red-900/40 text-red-400",
-    };
-
-    const color =
-      colors[difficulty as keyof typeof colors] ||
-      "bg-gray-800/40 text-gray-400";
-
-    return (
-      <span
-        className={`px-2 py-0.5 rounded-full text-xs ${color} capitalize border border-transparent`}
-      >
-        {difficulty}
-      </span>
-    );
-  };
-
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (game_state: string) => {
     const baseStyle = "px-2 py-0.5 rounded-full text-xs border capitalize";
-    const colors = {
+    const colors: Record<string, string> = {
       active: "border-green-700/50 bg-green-900/30 text-green-400",
       waiting: "border-yellow-700/50 bg-yellow-900/30 text-yellow-400",
       completed: "border-gray-700/50 bg-gray-900/30 text-gray-400",
@@ -116,10 +83,8 @@ export function OngoingGames() {
       draw: "border-blue-700/50 bg-blue-900/30 text-blue-400",
     };
     const color =
-      colors[status as keyof typeof colors] ||
-      "border-gray-700/50 bg-gray-900/30 text-gray-400";
-
-    return <span className={`${baseStyle} ${color}`}>{status}</span>;
+      colors[game_state] || "border-gray-700/50 bg-gray-900/30 text-gray-400";
+    return <span className={`${baseStyle} ${color}`}>{game_state}</span>;
   };
 
   return (
@@ -170,29 +135,11 @@ export function OngoingGames() {
 
       {/* Game List with enhanced cards */}
       <div className="max-w-6xl mx-auto">
-        {isLoading ? (
+        {isLoadingGames ? (
           <div className="text-center py-16">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500 mx-auto"></div>
             <p className="mt-4 text-gray-400">Loading games...</p>
           </div>
-        ) : error ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center py-16 bg-black/20 backdrop-blur-sm rounded-xl border border-red-800"
-          >
-            <div className="p-8">
-              <p className="text-xl text-red-400 mb-6">
-                Failed to load games. Please try again later.
-              </p>
-              <Button
-                className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 rounded-full px-6 shadow-lg shadow-amber-900/20"
-                onClick={() => window.location.reload()}
-              >
-                <Plus className="mr-2 h-4 w-4" /> Retry
-              </Button>
-            </div>
-          </motion.div>
         ) : games.length === 0 ? (
           <motion.div
             initial={{ opacity: 0 }}
@@ -218,20 +165,27 @@ export function OngoingGames() {
           <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
             {games.map((game, index) => (
               <motion.div
-                key={game._id}
+                key={game.game_hash}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: index * 0.1 }}
                 className="bg-gradient-to-b from-black/40 to-black/60 backdrop-blur-md border border-gray-800/70 rounded-xl overflow-hidden hover:border-amber-600/40 hover:shadow-lg hover:shadow-amber-900/10 transition-all duration-300 cursor-pointer"
-                onClick={() => navigate(`/game/${game._id}`)}
+                onClick={() => navigate(`/game/${game.game_hash}`)}
               >
                 {/* Card header */}
                 <div className="flex justify-between items-center p-4 border-b border-gray-800/50">
                   <div className="flex items-center gap-2 text-sm font-medium text-gray-300">
-                    {getGameIcon(game)}
-                    <span>{getGameTitle(game)}</span>
+                    {/* Icon: show betting or normal */}
+                    {game.bet_status === 1 ? (
+                      <Bot className="h-4 w-4 text-purple-400 mr-2" />
+                    ) : (
+                      <Monitor className="h-4 w-4 text-green-400 mr-2" />
+                    )}
+                    <span>
+                      {game.bet_status === 1 ? "Betting Game" : "Normal Game"}
+                    </span>
                   </div>
-                  {getStatusBadge(game.status)}
+                  {getStatusBadge(game.game_state)}
                 </div>
 
                 {/* Game Info */}
@@ -239,37 +193,34 @@ export function OngoingGames() {
                   {/* Player names */}
                   <div className="flex justify-between items-center text-sm">
                     <span className="font-medium text-gray-100 truncate">
-                      {game.whitePlayerUsername}
+                      {helperUtil.shortenWalletAddress(game.player1)}
                     </span>
                     <span className="text-xs text-gray-500 px-2">vs</span>
                     <span className="font-medium text-gray-100 truncate text-right">
-                      {game.blackPlayerUsername}
+                      {helperUtil.shortenWalletAddress(game.player2)}
                     </span>
-                  </div>
-
-                  {/* Turn Indicator - Simplified */}
-                  <div className="flex items-center justify-center text-xs text-gray-400">
-                    <span
-                      className={`mr-1.5 h-1.5 w-1.5 rounded-full ${
-                        game.currentTurn === "w"
-                          ? "bg-green-400 animate-pulse"
-                          : "bg-gray-600"
-                      }`}
-                    ></span>
-                    {game.currentTurn === "w" ? "White" : "Black"}
-                    's turn
                   </div>
 
                   {/* Meta Info */}
                   <div className="flex justify-between items-center text-xs text-gray-400 border-t border-gray-800/50 pt-3 mt-3">
+                    {/* Time remaining */}
                     <div className="flex items-center gap-1.5">
                       <Clock className="h-3 w-3 text-amber-500" />
-                      <span>{getTimeRemaining(game.endTime)}</span>
+                      <span>
+                        {getTimeRemaining(game.duration, game.time_difference)}
+                      </span>
                     </div>
-                    {getDifficultyLabel(game.difficulty)}
+                    {/* Bet Amount */}
+                    {game.bet_status === 1 && (
+                      <span className="bg-purple-900/40 text-purple-300 px-2 py-0.5 rounded-full text-xs border border-purple-700/30">
+                        Bet: {game.player_amount} SOL
+                      </span>
+                    )}
+
+                    {/* Spectator Count */}
                     <div className="flex items-center gap-1.5">
                       <Eye className="h-3 w-3" />
-                      <span>{game.spectatorCount}</span>
+                      <span>{game?.spectator_count || 0}</span>{" "}
                     </div>
                   </div>
                 </div>

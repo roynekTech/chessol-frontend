@@ -18,6 +18,8 @@ import {
   IWSJoinedMessage,
   IWSReconnectMessage,
   IWSReconnectedMessage,
+  IGetGameDataMemResponse,
+  LocalStorageRoomTypeEnum,
 } from "../../utils/type";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -39,6 +41,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import ChatDropdown from "../../components/game/ChatDropdown";
 import { helperUtil } from "../../utils/helper";
+import { API_PATHS, PAGE_ROUTES } from "../../utils/constants";
+import { useGetData } from "../../utils/use-query-hooks";
 
 // Sound files
 const MOVE_SOUND_SRC = "/move-sound.wav";
@@ -119,9 +123,15 @@ export function HumanVsHumanV2() {
     LocalStorageKeysEnum.GameDetails
   ) as IGameDetailsLocalStorage | null;
 
-  const gameId = gameDetails?.gameId || null;
+  const gameId = gameDetails?.gameId;
+  if (!gameId) {
+    toast.error("Game has ended, please create a new game");
+    navigate(PAGE_ROUTES.OngoingGames);
+  }
   const playerColor = (gameDetails?.playerColor || null) as Color | null;
   const playerWalletAddress = gameDetails?.playerWalletAddress;
+  const isSpectator =
+    gameDetails?.roomType === LocalStorageRoomTypeEnum.SPECTATOR;
 
   const [walletAddress, setWalletAddress] = useState(playerWalletAddress);
 
@@ -137,6 +147,24 @@ export function HumanVsHumanV2() {
   );
 
   const stablePlayerColor = boardOrientationRef.current;
+
+  // fetch game details from memory and check if game ended
+  // fetch game details
+  const { data: retrievedGameDetails, isLoading: isLoadingGameDetails } =
+    useGetData<IGetGameDataMemResponse>(
+      API_PATHS.getInMemGameDetails(gameId!),
+      ["gameDetails", gameId!],
+      {
+        enabled: !!gameId,
+      }
+    );
+
+  setTimeout(() => {
+    if (!retrievedGameDetails && !isLoadingGameDetails) {
+      toast.error("Game has ended, please create a new game");
+      window.location.href = PAGE_ROUTES.OngoingGames;
+    }
+  }, 1000);
 
   // On mount, try to load saved game state
   const savedGameState = localStorageHelper.getItem(
@@ -453,6 +481,10 @@ export function HumanVsHumanV2() {
 
         case WebSocketMessageTypeEnum.Error: {
           const errorMsg = messageData as IWSErrorMessage;
+          // check if game ended
+          if (errorMsg.message.includes("Game no longer exists")) {
+            console.log("game ended");
+          }
           toast.error(`Game Error: ${errorMsg.message}`);
           break;
         }
@@ -465,6 +497,10 @@ export function HumanVsHumanV2() {
   // Handle square click updates
   const handleSquareClick = useCallback(
     (square: Square) => {
+      if (isSpectator) {
+        return;
+      }
+
       // check game is not ended
       if (gameState.isEnded) {
         toast.info("Game is ended, proceed to creating a new game");
@@ -949,7 +985,9 @@ export function HumanVsHumanV2() {
           <div className="flex items-center gap-2 sm:gap-4 self-end sm:self-auto">
             <Button
               variant="outline"
-              className="gap-1 sm:gap-2 text-black cursor-pointer text-xs sm:text-sm relative"
+              className={`gap-1 sm:gap-2 text-black cursor-pointer text-xs sm:text-sm relative ${
+                isSpectator ? "hidden" : ""
+              }`}
               size="sm"
               onClick={() => setShowChat(true)}
               aria-label="Open chat"
@@ -965,6 +1003,8 @@ export function HumanVsHumanV2() {
               <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Chat</span>
             </Button>
+
+            {/* Resign Dialog */}
             <AlertDialog
               open={showResignDialog}
               onOpenChange={setShowResignDialog}
@@ -972,7 +1012,9 @@ export function HumanVsHumanV2() {
               <AlertDialogTrigger asChild>
                 <Button
                   variant="destructive"
-                  className="gap-1 sm:gap-2 cursor-pointer text-xs sm:text-sm"
+                  className={`gap-1 sm:gap-2 cursor-pointer text-xs sm:text-sm ${
+                    isSpectator ? "hidden" : ""
+                  }`}
                   size="sm"
                   onClick={() => setShowResignDialog(true)}
                   disabled={gameState.isEnded}

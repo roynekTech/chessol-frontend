@@ -21,12 +21,13 @@ import {
   IWSErrorMessage,
   IWSJoinMessage,
   IGetGameDataMemResponse,
+  LocalStorageRoomTypeEnum,
 } from "../utils/type";
 import { localStorageHelper } from "../utils/localStorageHelper";
 import { toast } from "sonner";
 import { useWebSocketContext } from "../context/useWebSocketContext";
 import { useGetData } from "../utils/use-query-hooks";
-import { ESCROW_ADDRESS } from "../utils/constants";
+import { API_PATHS, ESCROW_ADDRESS, PAGE_ROUTES } from "../utils/constants";
 import {
   LAMPORTS_PER_SOL,
   PublicKey,
@@ -60,7 +61,7 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
     isLoading: isLoadingGameDetails,
     isFetched,
   } = useGetData<IGetGameDataMemResponse>(
-    `gameDataMem/${debouncedGameId}`,
+    API_PATHS.getInMemGameDetails(debouncedGameId),
     ["gameDetails", debouncedGameId],
     {
       enabled: !!debouncedGameId,
@@ -154,7 +155,7 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
       ) {
         toast.error("Game is already ended, please provide another game ID.");
         setTimeout(() => {
-          navigate("/games");
+          navigate(PAGE_ROUTES.OngoingGames);
         }, 2000);
         return;
       }
@@ -254,6 +255,7 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
     if (messageData.type === WebSocketMessageTypeEnum.Joined) {
       const joinedMessage = messageData;
       const data: IGameDetailsLocalStorage = {
+        roomType: LocalStorageRoomTypeEnum.PLAYER,
         gameId: joinedMessage.gameId,
         fen: joinedMessage.fen,
         isBetting: joinedMessage.isBetting,

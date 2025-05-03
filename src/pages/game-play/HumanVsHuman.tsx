@@ -21,6 +21,7 @@ import {
   IWSMoveMessage,
 } from "../../utils/type";
 import { helperUtil } from "../../utils/helper";
+import { PAGE_ROUTES } from "../../utils/constants";
 
 // Types
 interface ICapturedPieceData {
@@ -182,7 +183,7 @@ const useGameWebSocket = (
             } catch {
               toast.error("Invalid FEN received from server. Redirecting...");
               localStorageHelper.deleteItem(LocalStorageKeysEnum.GameDetails);
-              navigate("/");
+              navigate(PAGE_ROUTES.Homepage);
               break;
             }
           }
@@ -247,13 +248,13 @@ const processGameEndedMessage = (
   let winner: Color | "draw" | null = null;
 
   if (endedMsg.reason === "checkmate") {
-    winner = endedMsg.winner === "w" ? "w" : "b";
+    winner = endedMsg.winnerColor === "w" ? "w" : "b";
     statusText = `Checkmate! ${winner === "w" ? "White" : "Black"} wins`;
   } else if (endedMsg.reason === "resignation") {
-    winner = endedMsg.winner === "w" ? "w" : "b";
+    winner = endedMsg.winnerColor === "w" ? "w" : "b";
     statusText = `${winner === "w" ? "White" : "Black"} wins by resignation`;
   } else if (endedMsg.reason === "timeout") {
-    winner = endedMsg.winner === "w" ? "w" : "b";
+    winner = endedMsg.winnerColor === "w" ? "w" : "b";
     statusText = `${winner === "w" ? "White" : "Black"} wins on time`;
   } else if (
     [
