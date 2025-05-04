@@ -13,39 +13,16 @@ import {
 } from "lucide-react";
 import { GameModeModal } from "@/components/GameModeModal";
 import { JoinGameModal } from "@/components/JoinGameModal";
-import { IListGamesResponse } from "../utils/type";
-import { API_PATHS } from "../utils/constants";
+import {
+  IGameDetailsLocalStorage,
+  IListGamesResponse,
+  LocalStorageKeysEnum,
+  LocalStorageRoomTypeEnum,
+} from "../utils/type";
+import { API_PATHS, PAGE_ROUTES } from "../utils/constants";
 import { useGetData } from "../utils/use-query-hooks";
 import { helperUtil } from "../utils/helper";
-
-interface IMove {
-  from: string;
-  to: string;
-  fen: string;
-  san: string;
-  timestamp: string;
-}
-
-export interface IGame {
-  _id: string;
-  whitePlayer: string | null; // User ID or null for AI
-  blackPlayer: string | null; // User ID or null for AI
-  whitePlayerUsername: string;
-  blackPlayerUsername: string;
-  currentTurn: "w" | "b";
-  moves: IMove[];
-  status: string;
-  result: string;
-  currentPosition: string; // FEN
-  initialPosition: string; // FEN
-  difficulty?: string; // Added to match schema
-  createdAt: Date;
-  updatedAt: Date;
-  completedAt?: Date;
-  spectatorCount: number;
-  gameType: string;
-  endTime?: Date;
-}
+import { localStorageHelper } from "../utils/localStorageHelper";
 
 export function OngoingGames() {
   const navigate = useNavigate();
@@ -58,13 +35,14 @@ export function OngoingGames() {
     refetchInterval: 3 * 60 * 1000, // 3 minutes
   });
   const games = gamesData?.data || [];
-  console.log("games", games);
 
   const getTimeRemaining = (
     duration: number,
     time_difference: number | null
   ) => {
-    if (!duration || time_difference === null) return "No time limit";
+    if (!duration || time_difference === null) {
+      return "No time limit";
+    }
     // duration is in ms, time_difference in ms
     const remaining = duration - time_difference;
     if (remaining <= 0) return "Time expired";
@@ -85,6 +63,15 @@ export function OngoingGames() {
     const color =
       colors[game_state] || "border-gray-700/50 bg-gray-900/30 text-gray-400";
     return <span className={`${baseStyle} ${color}`}>{game_state}</span>;
+  };
+
+  const handleSpectateGame = (gameId: string) => {
+    const payload: Partial<IGameDetailsLocalStorage> = {
+      gameId: gameId,
+      roomType: LocalStorageRoomTypeEnum.SPECTATOR,
+    };
+    localStorageHelper.setItem(LocalStorageKeysEnum.GameDetails, payload);
+    navigate(PAGE_ROUTES.GamePlayHuman);
   };
 
   return (
@@ -169,8 +156,7 @@ export function OngoingGames() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: index * 0.1 }}
-                className="bg-gradient-to-b from-black/40 to-black/60 backdrop-blur-md border border-gray-800/70 rounded-xl overflow-hidden hover:border-amber-600/40 hover:shadow-lg hover:shadow-amber-900/10 transition-all duration-300 cursor-pointer"
-                onClick={() => navigate(`/game/${game.game_hash}`)}
+                className="bg-gradient-to-b from-black/40 to-black/60 backdrop-blur-md border border-gray-800/70 rounded-xl overflow-hidden hover:border-amber-600/40 hover:shadow-lg hover:shadow-amber-900/10 transition-all duration-300"
               >
                 {/* Card header */}
                 <div className="flex justify-between items-center p-4 border-b border-gray-800/50">
@@ -201,27 +187,41 @@ export function OngoingGames() {
                     </span>
                   </div>
 
-                  {/* Meta Info */}
-                  <div className="flex justify-between items-center text-xs text-gray-400 border-t border-gray-800/50 pt-3 mt-3">
-                    {/* Time remaining */}
-                    <div className="flex items-center gap-1.5">
-                      <Clock className="h-3 w-3 text-amber-500" />
-                      <span>
-                        {getTimeRemaining(game.duration, game.time_difference)}
-                      </span>
+                  {/* Meta Info + Spectate Button */}
+                  <div className="flex flex-col gap-2 mt-3 border-t border-gray-800/50 pt-3">
+                    <div className="flex justify-between items-center text-xs text-gray-400">
+                      {/* Time remaining */}
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="h-3 w-3 text-amber-500" />
+                        <span>
+                          {getTimeRemaining(
+                            game.duration,
+                            game.time_difference
+                          )}
+                        </span>
+                      </div>
+                      {/* Bet Amount */}
+                      {game.bet_status === 1 && (
+                        <span className="bg-purple-900/40 text-purple-300 px-2 py-0.5 rounded-full text-xs border border-purple-700/30">
+                          Bet: {game.player_amount} SOL
+                        </span>
+                      )}
+                      {/* Spectator Count */}
+                      <div className="flex items-center gap-1.5">
+                        <Eye className="h-3 w-3" />
+                        <span>{game?.spectator_count || 0}</span>{" "}
+                      </div>
                     </div>
-                    {/* Bet Amount */}
-                    {game.bet_status === 1 && (
-                      <span className="bg-purple-900/40 text-purple-300 px-2 py-0.5 rounded-full text-xs border border-purple-700/30">
-                        Bet: {game.player_amount} SOL
-                      </span>
-                    )}
-
-                    {/* Spectator Count */}
-                    <div className="flex items-center gap-1.5">
-                      <Eye className="h-3 w-3" />
-                      <span>{game?.spectator_count || 0}</span>{" "}
-                    </div>
+                    {/* Spectate Button */}
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="mx-auto mt-2 px-6 py-2 font-semibold rounded-lg bg-black/30 border border-amber-500/40 text-amber-300 shadow-sm shadow-amber-900/10 transition-all duration-200 hover:bg-amber-900/20 hover:text-white hover:border-amber-400 focus:ring-2 focus:ring-amber-400 focus:outline-none w-auto cursor-pointer"
+                      aria-label="Spectate this game"
+                      onClick={() => handleSpectateGame(game.game_hash)}
+                    >
+                      <Eye className="w-4 h-4 mr-1" /> Spectate
+                    </Button>
                   </div>
                 </div>
               </motion.div>

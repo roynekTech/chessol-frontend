@@ -1,3 +1,6 @@
+import { Color, Square } from "chess.js";
+import { ICapturedPiece } from "./chessUtils";
+
 // Enums for sides, game states, and WebSocket message types
 export enum SideEnum {
   White = "w",
@@ -38,6 +41,10 @@ export enum WebSocketMessageTypeEnum {
   PairRequest = "pairRequest",
   Paired = "paired",
   Pairing = "pairing",
+  StateGame = "stateGame",
+  GameState = "gameState",
+  Checkmate = "checkmate",
+  Draw = "draw",
 }
 
 // --- Shared Types ---
@@ -71,6 +78,7 @@ export interface IWSCreateMessage {
   isBetting?: boolean;
   transactionId?: string;
   playerAmount?: number;
+  config?: IGameConfig;
 }
 
 export interface IWSCreatedMessage {
@@ -81,7 +89,8 @@ export interface IWSCreatedMessage {
   isBetting: boolean;
   playerAmount: number | null;
   nonce: string;
-  duration: number; // ms, added per API
+  duration: number;
+  config?: IGameConfig;
 }
 
 export interface IWSErrorMessage {
@@ -109,7 +118,8 @@ export interface IWSJoinedMessage {
   isBetting: boolean;
   betDetails?: IBetDetails;
   nonce: string;
-  duration: number; // ms, added per API
+  duration: number;
+  config?: IGameConfig;
 }
 
 // 3. Make Move
@@ -119,6 +129,7 @@ export interface IWSMoveMessage {
   fen: string;
   walletAddress: string;
   move: string;
+  clientTime?: number;
   initialFen: string;
 }
 
@@ -166,8 +177,9 @@ export interface IWSChatMessage {
 
 export interface IWSChatBroadcast {
   type: WebSocketMessageTypeEnum.Chat;
-  sender: string; // updated from 'from' to 'sender' per API
+  sender: string;
   message: string;
+  initiator?: string;
 }
 
 // 7. Reconnect
@@ -195,7 +207,8 @@ export interface IWSGameEndedMessage {
   type: WebSocketMessageTypeEnum.GameEnded;
   winnerColor: "w" | "b" | null;
   reason: string;
-  winner: "string"; // winner wallet address
+  winner: string; // winner wallet address
+  fen?: string;
 }
 
 // 9. Pair Request
@@ -229,6 +242,14 @@ export interface IWSGenericError {
   message: string;
 }
 
+export interface IGameConfig {
+  randomStart?: boolean;
+  moveTimeout?: number;
+  numberOfGames?: number;
+  resignationTime?: number | null;
+  abortTimeout?: number | null;
+}
+
 // --- Unions for all possible messages ---
 export type TWebSocketIncoming =
   | IWSCreatedMessage
@@ -241,6 +262,7 @@ export type TWebSocketIncoming =
   | IWSReconnectedMessage
   | IWSPairedMessage
   | IWSPairingMessage
+  | IWSGameStateMessage
   | IWSGenericError;
 
 export type TWebSocketOutgoing =
@@ -252,7 +274,10 @@ export type TWebSocketOutgoing =
   | IWSChatMessage
   | IWSResignMessage
   | IWSReconnectMessage
-  | IWSPairRequestMessage;
+  | IWSPairRequestMessage
+  | IWSStateGameMessage
+  | IWSCheckmateMessage
+  | IWSDrawMessage;
 
 // ---- Localstorage items ----
 export enum LocalStorageKeysEnum {
@@ -307,4 +332,51 @@ export interface IListGamesResponse {
   game_hash: string;
   game_state: string;
   spectator_count: number;
+}
+
+// 10. State Game
+export interface IWSStateGameMessage {
+  type: WebSocketMessageTypeEnum.StateGame;
+  gameId: string;
+}
+
+export interface IWSGameStateMessage {
+  type: WebSocketMessageTypeEnum.GameState;
+  game: Record<string, unknown>; // TODO: Replace with IGameState when structure is finalized
+}
+
+// 11. Checkmate
+export interface IWSCheckmateMessage {
+  type: WebSocketMessageTypeEnum.Checkmate;
+  gameId: string;
+  walletAddress: string;
+}
+
+// 12. Draw (Stalemate)
+export interface IWSDrawMessage {
+  type: WebSocketMessageTypeEnum.Draw;
+  gameId: string;
+  walletAddress: string;
+}
+
+// state interface for the game
+export interface IGameState {
+  fen: string;
+  playerTurn: Color;
+  selectedSquare: Square | null;
+  validMoves: Square[];
+  moveHistory: string[];
+  capturedPieces: {
+    w: ICapturedPiece[];
+    b: ICapturedPiece[];
+  };
+  lastMove: { from: Square; to: Square } | null;
+  winner: Color | "draw" | null;
+  isEnded: boolean;
+  isOngoing: boolean;
+  isStarted: boolean;
+  gameStatus: string;
+  moveHighlight: { from: Square; to: Square } | null;
+  whitePlayerTimerInMilliseconds: number;
+  blackPlayerTimerInMilliseconds: number;
 }

@@ -20,13 +20,10 @@ import {
   IWSReconnectedMessage,
   IGetGameDataMemResponse,
   LocalStorageRoomTypeEnum,
+  IGameState,
 } from "../../utils/type";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-  calculateCapturedPieces,
-  formatTime,
-  ICapturedPiece,
-} from "../../utils/chessUtils";
+import { calculateCapturedPieces, formatTime } from "../../utils/chessUtils";
 import { useWallet } from "@solana/wallet-adapter-react";
 import {
   AlertDialog,
@@ -43,31 +40,11 @@ import ChatDropdown from "../../components/game/ChatDropdown";
 import { helperUtil } from "../../utils/helper";
 import { API_PATHS, PAGE_ROUTES } from "../../utils/constants";
 import { useGetData } from "../../utils/use-query-hooks";
+import { LoaderWithInnerLoader } from "../../components/Loader";
 
 // Sound files
 const MOVE_SOUND_SRC = "/move-sound.wav";
 const CAPTURE_SOUND_SRC = "/capture-sound.wav";
-
-interface IGameState {
-  fen: string;
-  playerTurn: Color;
-  selectedSquare: Square | null;
-  validMoves: Square[];
-  moveHistory: string[];
-  capturedPieces: {
-    w: ICapturedPiece[];
-    b: ICapturedPiece[];
-  };
-  lastMove: { from: Square; to: Square } | null;
-  winner: Color | "draw" | null;
-  isEnded: boolean;
-  isOngoing: boolean;
-  isStarted: boolean;
-  gameStatus: string;
-  moveHighlight: { from: Square; to: Square } | null;
-  whitePlayerTimerInMilliseconds: number;
-  blackPlayerTimerInMilliseconds: number;
-}
 
 export function HumanVsHumanV2() {
   const navigate = useNavigate();
@@ -137,7 +114,7 @@ export function HumanVsHumanV2() {
 
   // update wallet address on page load
   useEffect(() => {
-    if (!walletAddress) {
+    if (!walletAddress && publicKey) {
       setWalletAddress(publicKey?.toBase58() || "");
     }
   }, [publicKey]);
@@ -149,7 +126,6 @@ export function HumanVsHumanV2() {
   const stablePlayerColor = boardOrientationRef.current;
 
   // fetch game details from memory and check if game ended
-  // fetch game details
   const { data: retrievedGameDetails, isLoading: isLoadingGameDetails } =
     useGetData<IGetGameDataMemResponse>(
       API_PATHS.getInMemGameDetails(gameId!),
@@ -158,13 +134,6 @@ export function HumanVsHumanV2() {
         enabled: !!gameId,
       }
     );
-
-  setTimeout(() => {
-    if (!retrievedGameDetails && !isLoadingGameDetails) {
-      toast.error("Game has ended, please create a new game");
-      window.location.href = PAGE_ROUTES.OngoingGames;
-    }
-  }, 1000);
 
   // On mount, try to load saved game state
   const savedGameState = localStorageHelper.getItem(
@@ -954,6 +923,37 @@ export function HumanVsHumanV2() {
 
   const [showChat, setShowChat] = useState(false);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+
+  // Show loading screen if game details are still loading
+  if (isLoadingGameDetails) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-purple-950 to-black">
+        <LoaderWithInnerLoader text="Loading game details..." />
+      </div>
+    );
+  }
+
+  // Show error screen if game details are not found
+  if (!isLoadingGameDetails && !retrievedGameDetails) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-purple-950 to-black">
+        <div className="backdrop-blur-lg bg-white/10 border border-white/20 rounded-2xl shadow-2xl p-8 flex flex-col items-center">
+          <span className="text-3xl font-bold text-red-500 mb-2">
+            Game Not Found
+          </span>
+          <span className="text-lg text-white/80 mb-6">
+            The game you are looking for does not exist or has ended.
+          </span>
+          <button
+            className="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-6 py-2 rounded-lg shadow transition-all cursor-pointer"
+            onClick={() => navigate(PAGE_ROUTES.OngoingGames)}
+          >
+            Return to games
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-950 to-black text-white">
