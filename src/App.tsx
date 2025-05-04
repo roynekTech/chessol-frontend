@@ -18,6 +18,7 @@ import { Lobby } from "./pages/Lobby";
 import { WebSocketProvider } from "./context/WebSocketContext";
 import HumanVsComputer from "./pages/game-play/HumanVsComputer";
 import HumanVsHumanV2 from "./pages/game-play/HumanVsHumanV2";
+import { TournamentPage } from "./pages/tournament/TournamentPage";
 import { Layout } from "./components/Layout";
 
 const queryClient = new QueryClient();
@@ -54,6 +55,7 @@ function App() {
                       path="/game-play/computer"
                       element={<HumanVsComputer />}
                     />
+                    <Route path="/tournaments" element={<TournamentPage />} />
                   </Routes>
                 </Router>
               </Layout>
