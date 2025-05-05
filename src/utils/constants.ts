@@ -19,6 +19,6 @@ export const PAGE_ROUTES = {
   OngoingGames: "/games",
   Lobby: "/lobby",
   GamePlay: "/game-play",
-  GamePlayHuman: "/game-play/human",
-  GamePlayComputer: "/game-play/computer",
+  TournamentPage: "/tournaments",
+  NotFound: "*",
 };

@@ -80,7 +80,7 @@ export function Lobby() {
       messageData.gameId === gameId
     ) {
       // Optionally, show a quick message or spinner here
-      navigate(PAGE_ROUTES.GamePlayHuman);
+      navigate(PAGE_ROUTES.GamePlay);
     }
   }, [lastMessage, gameId, navigate]);
 

@@ -22,6 +22,7 @@ import {
   IWSJoinMessage,
   IGetGameDataMemResponse,
   LocalStorageRoomTypeEnum,
+  OpponentTypeEnum,
 } from "../utils/type";
 import { localStorageHelper } from "../utils/localStorageHelper";
 import { toast } from "sonner";
@@ -256,6 +257,7 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
       const joinedMessage = messageData;
       const data: IGameDetailsLocalStorage = {
         roomType: LocalStorageRoomTypeEnum.PLAYER,
+        opponentType: OpponentTypeEnum.Human,
         gameId: joinedMessage.gameId,
         fen: joinedMessage.fen,
         isBetting: joinedMessage.isBetting,
@@ -267,7 +269,7 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
       localStorageHelper.setItem(LocalStorageKeysEnum.GameDetails, data);
       setIsJoining(false);
       onOpenChange(false);
-      navigate(`/game-play/human`);
+      navigate(PAGE_ROUTES.GamePlay);
     } else if (messageData.type === WebSocketMessageTypeEnum.Error) {
       if (isJoining) {
         toast.error(

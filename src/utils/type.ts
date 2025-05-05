@@ -8,11 +8,6 @@ export enum SideEnum {
   Random = "random",
 }
 
-export enum GameModeEnum {
-  Human = "human",
-  Computer = "computer",
-}
-
 export enum GameStateEnum {
   Waiting = "waiting",
   Running = "running",
@@ -289,9 +284,14 @@ export enum LocalStorageRoomTypeEnum {
   PLAYER = "player",
   SPECTATOR = "spectator",
 }
+export enum OpponentTypeEnum {
+  Human = "human",
+  Computer = "computer",
+}
 
 export interface IGameDetailsLocalStorage {
   roomType: LocalStorageRoomTypeEnum;
+  opponentType: OpponentTypeEnum;
   gameId: string;
   fen: string;
   isBetting: boolean;
@@ -362,6 +362,7 @@ export interface IWSDrawMessage {
 // state interface for the game
 export interface IGameState {
   fen: string;
+  playerColor: Color;
   playerTurn: Color;
   selectedSquare: Square | null;
   validMoves: Square[];

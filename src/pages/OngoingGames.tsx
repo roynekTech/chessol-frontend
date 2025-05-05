@@ -71,7 +71,7 @@ export function OngoingGames() {
       roomType: LocalStorageRoomTypeEnum.SPECTATOR,
     };
     localStorageHelper.setItem(LocalStorageKeysEnum.GameDetails, payload);
-    navigate(PAGE_ROUTES.GamePlayHuman);
+    navigate(PAGE_ROUTES.GamePlay);
   };
 
   return (

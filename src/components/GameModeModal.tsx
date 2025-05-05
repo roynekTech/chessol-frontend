@@ -15,7 +15,7 @@ import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import {
-  GameModeEnum,
+  OpponentTypeEnum,
   IGameDetailsLocalStorage,
   IWSCreatedMessage,
   IWSErrorMessage,
@@ -41,7 +41,9 @@ interface GameModeModalProps {
 
 export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
   const navigate = useNavigate();
-  const [gameMode, setGameMode] = useState<GameModeEnum>(GameModeEnum.Human);
+  const [opponentType, setOpponentType] = useState<OpponentTypeEnum>(
+    OpponentTypeEnum.Human
+  );
   const [duration, setDuration] = useState<number>(300000); // default 5 min
   const [isBetting, setIsBetting] = useState<boolean>(false);
   const [playerAmount, setPlayerAmount] = useState<string>("");
@@ -140,7 +142,7 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
     setUserClickedCreate(true);
 
     (async () => {
-      if (gameMode === GameModeEnum.Computer) {
+      if (opponentType === OpponentTypeEnum.Computer) {
         navigate(`/game-play/computer`);
         onOpenChange(false); // Close modal after navigating
       } else {
@@ -198,6 +200,7 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
 
         const data: IGameDetailsLocalStorage = {
           roomType: LocalStorageRoomTypeEnum.PLAYER,
+          opponentType: opponentType,
           gameId: createdMessage.gameId,
           fen: createdMessage.fen,
           isBetting: createdMessage.isBetting,
@@ -291,13 +294,15 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
                 Select Mode
               </h3>
               <RadioGroup
-                defaultValue={gameMode}
-                onValueChange={(value: GameModeEnum) => setGameMode(value)}
+                defaultValue={opponentType}
+                onValueChange={(value: OpponentTypeEnum) =>
+                  setOpponentType(value)
+                }
                 className="grid grid-cols-2 gap-4"
               >
                 <div>
                   <RadioGroupItem
-                    value="human"
+                    value={OpponentTypeEnum.Human}
                     id="human"
                     className="peer sr-only"
                   />
@@ -314,7 +319,7 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
 
                 <div>
                   <RadioGroupItem
-                    value="computer"
+                    value={OpponentTypeEnum.Computer}
                     id="computer"
                     className="peer sr-only"
                   />

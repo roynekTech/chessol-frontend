@@ -9,6 +9,7 @@ function createInitialGameState(
 ): IGameState {
   return {
     fen,
+    playerColor: "w",
     playerTurn: "w",
     selectedSquare: null,
     validMoves: [],

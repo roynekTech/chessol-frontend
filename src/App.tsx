@@ -16,10 +16,11 @@ import "@solana/wallet-adapter-react-ui/styles.css";
 import { useMemo } from "react";
 import { Lobby } from "./pages/Lobby";
 import { WebSocketProvider } from "./context/WebSocketContext";
-import HumanVsComputer from "./pages/game-play/HumanVsComputer";
 import HumanVsHumanV2 from "./pages/game-play/HumanVsHumanV2";
 import { TournamentPage } from "./pages/tournament/TournamentPage";
 import { Layout } from "./components/Layout";
+import { NotFound } from "./pages/NotFound";
+import { PAGE_ROUTES } from "./utils/constants";
 
 const queryClient = new QueryClient();
 
@@ -44,18 +45,24 @@ function App() {
               <Layout>
                 <Router>
                   <Routes>
-                    <Route path="/" element={<LandingPage />} />
-                    <Route path="/games" element={<OngoingGames />} />
-                    <Route path="/lobby" element={<Lobby />} />
                     <Route
-                      path="/game-play/human"
+                      path={PAGE_ROUTES.Homepage}
+                      element={<LandingPage />}
+                    />
+                    <Route
+                      path={PAGE_ROUTES.OngoingGames}
+                      element={<OngoingGames />}
+                    />
+                    <Route path={PAGE_ROUTES.Lobby} element={<Lobby />} />
+                    <Route
+                      path={PAGE_ROUTES.GamePlay}
                       element={<HumanVsHumanV2 />}
                     />
                     <Route
-                      path="/game-play/computer"
-                      element={<HumanVsComputer />}
+                      path={PAGE_ROUTES.TournamentPage}
+                      element={<TournamentPage />}
                     />
-                    <Route path="/tournaments" element={<TournamentPage />} />
+                    <Route path={PAGE_ROUTES.NotFound} element={<NotFound />} />
                   </Routes>
                 </Router>
               </Layout>
