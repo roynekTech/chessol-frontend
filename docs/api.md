@@ -38,8 +38,6 @@ All messages must be JSON objects with a `type` field indicating the message typ
   "duration": 600000 // default to 300000 - 5 mins
 }
 
-
-
 // Full (betting): isBetting, transactionId, playerAmount
 {
   "type": "create",
@@ -63,10 +61,31 @@ All messages must be JSON objects with a `type` field indicating the message typ
     "numberOfGames": 1,
     "resignationTime": "null or integers",
     "abortTimeout": "null or integers"
-
   }
 }
 
+// with cat
+{
+    "type": "create",
+    "duration": 120000,
+    "cat": "human", //default to human
+    "walletAddress": "testWallet",
+    "side": "random"
+},
+{
+    "type": "create",
+    "duration": 120000,
+    "cat": "pair",
+    "walletAddress": "testWallet",
+    "side": "w"
+},
+{
+    "type": "create",
+    "duration": 120000,
+    "cat": "AI",
+    "walletAddress": "testWallet",
+    "side": "b" // the user is b so AI would play first - handled by create
+},
 
 ```
 
@@ -424,7 +443,6 @@ All messages must be JSON objects with a `type` field indicating the message typ
   "winnerColor": "b"|"w",
   "reason": "checkmate",
   "fen": "FEN"
-
 }
 ```
 
@@ -464,7 +482,6 @@ All messages must be JSON objects with a `type` field indicating the message typ
   "sender": "Server",
   "initiator": "walletAddress"|"opponentWalletAddress"
 }
-
 ```
 
 ---

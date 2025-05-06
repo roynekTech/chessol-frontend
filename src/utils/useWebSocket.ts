@@ -72,7 +72,7 @@ export function useWebSocket(
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: "ping" }));
         }
-      }, 5000); // 5 seconds
+      }, 30000); // 30 seconds
     };
     const stopPing = () => {
       if (pingInterval) clearInterval(pingInterval);

@@ -42,6 +42,12 @@ export enum WebSocketMessageTypeEnum {
   Draw = "draw",
 }
 
+export enum GameCategoryEnum {
+  Human = "human",
+  Pair = "pair",
+  AI = "ai",
+}
+
 // --- Shared Types ---
 export interface IMove {
   from: string;
@@ -74,6 +80,7 @@ export interface IWSCreateMessage {
   transactionId?: string;
   playerAmount?: number;
   config?: IGameConfig;
+  cat?: GameCategoryEnum | string;
 }
 
 export interface IWSCreatedMessage {
@@ -351,6 +358,7 @@ export interface IWSDrawMessage {
 export interface IGameState {
   roomType: LocalStorageRoomTypeEnum;
   opponentType: OpponentTypeEnum;
+  cat: GameCategoryEnum;
   gameId: string;
   isBetting: boolean;
   duration: number;

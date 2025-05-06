@@ -789,20 +789,6 @@ export function HumanVsHumanV2() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-950 to-black text-white">
-      {/* --- Spectator Banner and Exit Button --- */}
-      {isSpectator && (
-        <div className="w-full flex flex-col sm:flex-row items-center justify-between bg-blue-900/80 border-b border-blue-700/40 px-4 py-2 mb-4 rounded-b-xl shadow-lg z-20">
-          <span className="text-blue-300 font-bold text-lg sm:text-xl flex items-center gap-2">
-            👁️ Spectating
-          </span>
-          <button
-            className="bg-blue-700 hover:bg-blue-600 text-white font-semibold px-4 py-1.5 rounded-lg shadow transition-all cursor-pointer mt-2 sm:mt-0"
-            onClick={() => navigate(PAGE_ROUTES.OngoingGames)}
-          >
-            Exit Spectate
-          </button>
-        </div>
-      )}
       {/* Chat Dropdown Overlay: Spectators see chat as read-only or hidden if not allowed */}
       <ChatDropdown
         gameId={String(gameId)}
@@ -824,8 +810,7 @@ export function HumanVsHumanV2() {
           <Button
             variant="ghost"
             onClick={() => navigate("/games")}
-            className="text-gray-300 hover:text-black self-start"
-            disabled={isSpectator} // Spectators cannot go back to lobby, use Exit Spectate instead
+            className="text-gray-300 hover:text-black self-start cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Lobby

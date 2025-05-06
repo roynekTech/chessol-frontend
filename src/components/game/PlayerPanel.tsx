@@ -16,6 +16,7 @@ export function PlayerPanel({ color }: { color: Color }) {
 
   // Use the stable orientation for player identity as well
   const isPlayer = color === playerColor;
+  const isSpectator = gameState.roomType === LocalStorageRoomTypeEnum.SPECTATOR;
   let playerObject: { name: string; wallet?: string };
 
   // TODO: add the wallet address once it's available in the state and use it for the avatar
@@ -42,7 +43,7 @@ export function PlayerPanel({ color }: { color: Color }) {
       wallet: walletAddress,
     };
   }
-  const isCurrentTurn = playerTurn === playerColor;
+  const isCurrentTurn = playerTurn === color;
   const timeRemaining =
     color === "w"
       ? gameState.whitePlayerTimerInMilliseconds
@@ -66,7 +67,7 @@ export function PlayerPanel({ color }: { color: Color }) {
         <div className="flex items-center space-x-2 sm:space-x-3">
           <Avatar
             className={
-              isPlayer
+              isPlayer && !isSpectator
                 ? "ring-2 ring-amber-500 w-8 h-8 sm:w-10 sm:h-10"
                 : "w-8 h-8 sm:w-10 sm:h-10"
             }
@@ -86,7 +87,7 @@ export function PlayerPanel({ color }: { color: Color }) {
             />
             <AvatarFallback
               className={
-                isPlayer
+                isPlayer && !isSpectator
                   ? "bg-amber-700 text-sm sm:text-base"
                   : "bg-gray-700 text-sm sm:text-base"
               }
@@ -97,19 +98,25 @@ export function PlayerPanel({ color }: { color: Color }) {
           <div>
             <h3 className="font-semibold text-white flex items-center flex-wrap gap-1 sm:gap-2 text-sm sm:text-base">
               {playerObject.name}
-              {isPlayer && (
+              {/* Only show 'You' if player and not spectator */}
+              {isPlayer && !isSpectator && (
                 <span className="text-xs bg-amber-600/30 border border-amber-600/50 px-1 py-0.5 sm:px-2 sm:py-0.5 rounded-full">
                   You
                 </span>
               )}
+              {/* Turn badge logic */}
               {isCurrentTurn && (
                 <span className="text-xs bg-green-600/30 border border-green-600/50 px-1 py-0.5 sm:px-2 sm:py-0.5 rounded-full">
-                  {isPlayer ? "Your Turn" : "Turn"}
+                  {isSpectator
+                    ? "Player Turn"
+                    : isPlayer
+                    ? "Your Turn"
+                    : "Turn"}
                 </span>
               )}
             </h3>
             <p className="text-xs sm:text-sm text-gray-400">
-              {playerColor === "w" ? "White" : "Black"}
+              {color === "w" ? "White" : "Black"}
             </p>
           </div>
         </div>

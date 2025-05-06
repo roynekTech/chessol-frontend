@@ -20,6 +20,8 @@ import {
   IWSErrorMessage,
   LocalStorageRoomTypeEnum,
   WebSocketMessageTypeEnum,
+  GameCategoryEnum,
+  SideEnum,
 } from "../utils/type";
 import { toast } from "sonner";
 import { useWebSocketContext } from "../context/useWebSocketContext";
@@ -31,6 +33,7 @@ import {
 } from "@solana/web3.js";
 import { ESCROW_ADDRESS, PAGE_ROUTES } from "../utils/constants";
 import { useChessGameStore } from "../stores/chessGameStore";
+import { Color } from "chess.js";
 
 interface GameModeModalProps {
   open: boolean;
@@ -39,13 +42,13 @@ interface GameModeModalProps {
 
 export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
   const navigate = useNavigate();
-  const [opponentType, setOpponentType] = useState<OpponentTypeEnum>(
-    OpponentTypeEnum.Human
+  const [gameCategory, setGameCategory] = useState<GameCategoryEnum>(
+    GameCategoryEnum.Human
   );
   const [duration, setDuration] = useState<number>(300000); // default 5 min
   const [isBetting, setIsBetting] = useState<boolean>(false);
   const [playerAmount, setPlayerAmount] = useState<string>("");
-  const [side, setSide] = useState<"w" | "b">("w");
+  const [side, setSide] = useState<"w" | "b" | "random">("w"); // Allow "random" for side
   const { publicKey } = useWallet();
   const walletAddress = publicKey?.toBase58() || "";
   const [userClickedCreate, setUserClickedCreate] = useState<boolean>(false);
@@ -143,36 +146,32 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
     setUserClickedCreate(true);
 
     (async () => {
-      if (opponentType === OpponentTypeEnum.Computer) {
-        navigate(`/game-play/computer`);
-        onOpenChange(false); // Close modal after navigating
-      } else {
-        let txHash = "";
-        if (isBetting && playerAmount && !autoProceed) {
-          txHash = (await handleBetTransaction()) || "";
-          console.log("txHash", txHash);
-          if (!txHash) {
-            setUserClickedCreate(false);
-            return;
-          }
+      let txHash = "";
+      if (isBetting && playerAmount && !autoProceed) {
+        txHash = (await handleBetTransaction()) || "";
+        console.log("txHash", txHash);
+        if (!txHash) {
+          setUserClickedCreate(false);
+          return;
         }
-
-        console.log("start game txHash", txHash);
-
-        // Prepare and send message to WebSocket server
-        const message = {
-          type: WebSocketMessageTypeEnum.Create,
-          walletAddress,
-          side,
-          duration,
-          isBetting,
-          transactionId: txHash,
-          playerAmount: Number(playerAmount || 0),
-        };
-        console.log("Sending Create Game (Human) message:", message);
-        sendMessage(JSON.stringify(message));
-        setGameCreated(false);
       }
+
+      console.log("start game txHash", txHash);
+
+      // Prepare and send message to WebSocket server
+      const message = {
+        type: WebSocketMessageTypeEnum.Create,
+        walletAddress,
+        side,
+        duration,
+        isBetting,
+        transactionId: txHash,
+        playerAmount: Number(playerAmount || 0),
+        cat: gameCategory, // Use the selected gameCategory
+      };
+      console.log("Sending Create Game message:", message);
+      sendMessage(JSON.stringify(message));
+      setGameCreated(false);
     })();
   };
 
@@ -185,11 +184,14 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
     try {
       const messageData = JSON.parse(lastMessage.data);
 
-      if (messageData.type === WebSocketMessageTypeEnum.Created) {
+      if (
+        messageData.type === WebSocketMessageTypeEnum.Created ||
+        messageData.type === WebSocketMessageTypeEnum.Joined
+      ) {
         const createdMessage = messageData as IWSCreatedMessage;
 
         // Validate color assignment
-        if (createdMessage.color !== side) {
+        if (side !== SideEnum.Random && createdMessage.color !== side) {
           console.error("Server assigned different color than requested:", {
             requested: side,
             assigned: createdMessage.color,
@@ -202,13 +204,20 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
         // delete game state before setting new game state
         deleteGameState();
 
+        // Determine opponent type for the store based on the game category used for creation
+        const storeOpponentType =
+          gameCategory === GameCategoryEnum.AI
+            ? OpponentTypeEnum.Computer
+            : OpponentTypeEnum.Human;
+
         updateGameState({
           roomType: LocalStorageRoomTypeEnum.PLAYER,
-          opponentType: opponentType,
+          opponentType: storeOpponentType,
+          cat: gameCategory, // Store the category used to create the game
           gameId: createdMessage.gameId,
           fen: createdMessage.fen,
           isBetting: createdMessage.isBetting,
-          playerColor: createdMessage.color,
+          playerColor: createdMessage.color as Color,
           isJoined: true,
           duration: createdMessage?.duration || duration,
           playerWalletAddress: walletAddress,
@@ -217,8 +226,12 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
         setGameCreated(true);
         setUserClickedCreate(false);
 
-        // Navigate to lobby and wait for opponent to join
-        navigate(PAGE_ROUTES.Lobby);
+        // Navigate based on game category
+        if (gameCategory === GameCategoryEnum.AI) {
+          navigate(PAGE_ROUTES.GamePlay);
+        } else {
+          navigate(PAGE_ROUTES.Lobby);
+        }
         onOpenChange(false);
       } else if (messageData.type === WebSocketMessageTypeEnum.Error) {
         const errorMessage = messageData as IWSErrorMessage;
@@ -297,43 +310,64 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
                 Select Mode
               </h3>
               <RadioGroup
-                defaultValue={opponentType}
-                onValueChange={(value: OpponentTypeEnum) =>
-                  setOpponentType(value)
-                }
-                className="grid grid-cols-2 gap-4"
+                defaultValue={gameCategory}
+                onValueChange={(value: GameCategoryEnum) => {
+                  setGameCategory(value);
+                }}
+                className="grid grid-cols-1 sm:grid-cols-3 gap-4"
               >
                 <div>
                   <RadioGroupItem
-                    value={OpponentTypeEnum.Human}
-                    id="human"
+                    value={GameCategoryEnum.Human}
+                    id="human-vs-human"
                     className="peer sr-only"
                   />
                   <Label
-                    htmlFor="human"
+                    htmlFor="human-vs-human"
                     className="flex flex-col items-center justify-between rounded-xl border border-gray-700 bg-black/40 backdrop-blur-sm p-4 hover:bg-gray-800/40 hover:border-amber-700/50 hover:shadow-md hover:shadow-amber-900/10 peer-data-[state=checked]:border-amber-500 [&:has([data-state=checked])]:border-amber-500 [&:has([data-state=checked])]:bg-gradient-to-b [&:has([data-state=checked])]:from-amber-950/30 [&:has([data-state=checked])]:to-black/40 transition-all duration-200 cursor-pointer h-full"
                   >
                     <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-900/30 to-purple-700/10 flex items-center justify-center mb-3 [&:has([data-state=checked])]:from-purple-600/40">
                       <User className="h-6 w-6 text-purple-400" />
                     </div>
-                    <div className="text-sm font-medium">Human vs Human</div>
+                    <div className="text-sm font-medium text-center">
+                      Human vs Human
+                    </div>
                   </Label>
                 </div>
-
                 <div>
                   <RadioGroupItem
-                    value={OpponentTypeEnum.Computer}
-                    id="computer"
+                    value={GameCategoryEnum.Pair}
+                    id="pair-link"
                     className="peer sr-only"
                   />
                   <Label
-                    htmlFor="computer"
+                    htmlFor="pair-link"
+                    className="flex flex-col items-center justify-between rounded-xl border border-gray-700 bg-black/40 backdrop-blur-sm p-4 hover:bg-gray-800/40 hover:border-amber-700/50 hover:shadow-md hover:shadow-amber-900/10 peer-data-[state=checked]:border-amber-500 [&:has([data-state=checked])]:border-amber-500 [&:has([data-state=checked])]:bg-gradient-to-b [&:has([data-state=checked])]:from-amber-950/30 [&:has([data-state=checked])]:to-black/40 transition-all duration-200 cursor-pointer h-full"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-900/30 to-green-700/10 flex items-center justify-center mb-3 [&:has([data-state=checked])]:from-green-600/40">
+                      <Swords className="h-6 w-6 text-green-400" />
+                    </div>
+                    <div className="text-sm font-medium text-center">
+                      Play with random opponent
+                    </div>
+                  </Label>
+                </div>
+                <div>
+                  <RadioGroupItem
+                    value={GameCategoryEnum.AI}
+                    id="play-vs-ai"
+                    className="peer sr-only"
+                  />
+                  <Label
+                    htmlFor="play-vs-ai"
                     className="flex flex-col items-center justify-between rounded-xl border border-gray-700 bg-black/40 backdrop-blur-sm p-4 hover:bg-gray-800/40 hover:border-amber-700/50 hover:shadow-md hover:shadow-amber-900/10 peer-data-[state=checked]:border-amber-500 [&:has([data-state=checked])]:border-amber-500 [&:has([data-state=checked])]:bg-gradient-to-b [&:has([data-state=checked])]:from-amber-950/30 [&:has([data-state=checked])]:to-black/40 transition-all duration-200 cursor-pointer h-full"
                   >
                     <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-900/30 to-blue-700/10 flex items-center justify-center mb-3 [&:has([data-state=checked])]:from-blue-600/40">
                       <Bot className="h-6 w-6 text-blue-400" />
                     </div>
-                    <div className="text-sm font-medium">Play vs Computer</div>
+                    <div className="text-sm font-medium text-center">
+                      Play vs AI
+                    </div>
                   </Label>
                 </div>
               </RadioGroup>
@@ -392,8 +426,10 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
                 </h3>
                 <RadioGroup
                   defaultValue={side}
-                  onValueChange={(value) => setSide(value as "w" | "b")}
-                  className="grid grid-cols-2 gap-4"
+                  onValueChange={(value) =>
+                    setSide(value as "w" | "b" | "random")
+                  }
+                  className="grid grid-cols-3 gap-4"
                 >
                   <div>
                     <RadioGroupItem
@@ -425,6 +461,22 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
                         <span className="text-white text-2xl font-bold">♚</span>
                       </div>
                       <div className="text-sm font-medium">Black</div>
+                    </Label>
+                  </div>
+                  <div>
+                    <RadioGroupItem
+                      value="random"
+                      id="side-random"
+                      className="peer sr-only"
+                    />
+                    <Label
+                      htmlFor="side-random"
+                      className="flex flex-col items-center justify-between rounded-xl border border-gray-700 bg-black/40 backdrop-blur-sm p-4 hover:bg-gray-800/40 hover:border-amber-700/50 hover:shadow-md hover:shadow-amber-900/10 peer-data-[state=checked]:border-amber-500 [&:has([data-state=checked])]:border-amber-500 [&:has([data-state=checked])]:bg-gradient-to-b [&:has([data-state=checked])]:from-amber-950/30 [&:has([data-state=checked])]:to-black/40 transition-all duration-200 cursor-pointer h-full"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-600/90 to-gray-800/90 flex items-center justify-center mb-2 border border-gray-500 ring-1 ring-gray-400/50 peer-data-[state=checked]:border-amber-500 peer-data-[state=checked]:ring-amber-400/60">
+                        <Zap className="h-5 w-5 text-gray-300" />
+                      </div>
+                      <div className="text-sm font-medium">Random</div>
                     </Label>
                   </div>
                 </RadioGroup>
