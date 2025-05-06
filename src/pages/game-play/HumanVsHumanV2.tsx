@@ -216,6 +216,19 @@ export function HumanVsHumanV2() {
     return Boolean(move.captured);
   };
 
+  // --- Keepalive Ping ---
+  // Effect: Sends a {type: "ping"} message every 25 seconds to keep the WebSocket alive
+  useEffect(() => {
+    const interval = setInterval(() => {
+      sendMessage(JSON.stringify({ type: "ping" }));
+    }, 25000);
+    return () => clearInterval(interval);
+  }, [sendMessage]);
+
+  // --- Move Pending State ---
+  // Effect: Prevents user from making another move until backend confirms
+  const [isMovePending, setIsMovePending] = useState(false);
+
   // Handle WebSocket messages
   useEffect(() => {
     if (!lastMessage?.data) {
@@ -227,6 +240,8 @@ export function HumanVsHumanV2() {
 
       switch (messageData.type) {
         case WebSocketMessageTypeEnum.Move: {
+          // --- Clear move pending state when backend confirms move ---
+          setIsMovePending(false);
           const moveMsg = messageData as IWSMoveBroadcast;
 
           if (moveMsg.fen && moveMsg.lastMove) {
@@ -368,6 +383,8 @@ export function HumanVsHumanV2() {
       }
     } catch (err) {
       console.error("Failed to parse WebSocket message:", err);
+      // --- Also clear move pending on error ---
+      setIsMovePending(false);
     }
   }, [lastMessage, game, gameId, playerColor, playSound, stablePlayerColor]);
 
@@ -375,6 +392,11 @@ export function HumanVsHumanV2() {
   const handleSquareClick = useCallback(
     (square: Square) => {
       if (isSpectator) {
+        return;
+      }
+      // --- Prevent move if waiting for backend ---
+      if (isMovePending) {
+        toast.info("Waiting for server response...");
         return;
       }
 
@@ -431,12 +453,6 @@ export function HumanVsHumanV2() {
               // Play sound for our own move
               playSound(isCaptureMove(move));
 
-              // Create move data with explicit from/to for the highlight
-              const lastMove = {
-                from: move.from as Square,
-                to: move.to as Square,
-              };
-
               const moveMessage: IWSMoveMessage = {
                 type: WebSocketMessageTypeEnum.Move,
                 gameId,
@@ -446,37 +462,23 @@ export function HumanVsHumanV2() {
                 move: `${move.from}${move.to}`,
               };
 
-              // Send move message to the server
+              // --- Send move message to the server ---
               sendMessage(JSON.stringify(moveMessage));
 
-              updateGameState({
-                fen: game.fen(),
-                playerTurn: game.turn() as Color,
-                moveHistory: game.history(),
-                lastMove: lastMove,
-                moveHighlight: lastMove,
-                selectedSquare: null,
-                validMoves: [],
-                gameStatus: `Waiting for ${
-                  game.turn() === "w" ? "white" : "black"
-                } to move`,
-              });
+              // --- Set move pending, do NOT update board/UI yet ---
+              setIsMovePending(true);
 
-              // Clear any previous timeout and set a new one
+              // --- Do NOT updateGameState here; wait for backend Move broadcast ---
+
+              // --- Clear any previous timeout and set a new one (optional, for UI feedback) ---
               if (moveHighlightTimeoutRef.current) {
                 clearTimeout(moveHighlightTimeoutRef.current);
               }
-
-              // Remove move highlight after 3 seconds
-              moveHighlightTimeoutRef.current = setTimeout(() => {
-                updateGameState({
-                  moveHighlight: null,
-                });
-              }, 3000);
             }
           } catch (error) {
             console.error("Move error:", error);
             toast.error("Invalid move!");
+            setIsMovePending(false);
           }
         }
 
@@ -498,6 +500,12 @@ export function HumanVsHumanV2() {
       walletAddress,
       moveHighlightTimeoutRef,
       playSound,
+      isMovePending,
+      isSpectator,
+      gameState.isEnded,
+      gameState,
+      updateGameState,
+      toast,
     ]
   );
 

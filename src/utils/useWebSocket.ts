@@ -22,6 +22,11 @@ export interface UseWebSocketOptions {
   onError?: (event: RwsErrorEvent) => void;
   /** Optional protocols */
   protocols?: string | string[];
+  /**
+   * Called after a reconnect (open event after a close)
+   * Useful for sending a reconnect message or restoring session
+   */
+  onReconnect?: (ws: ReconnectingWebSocket) => void;
 }
 
 const defaultWebsocketUrl =
@@ -53,10 +58,39 @@ export function useWebSocket(
     const ws = new ReconnectingWebSocket(url, options?.protocols);
     wsRef.current = ws;
 
+    // Track if this is a reconnect (open after close)
+    let wasClosed = false;
+
+    // --- Keepalive Ping Interval ---
+    // Effect: Sends a {type: "ping"} message every 25 seconds to keep the connection alive
+    // Input: None
+    // Output: Keeps WebSocket from being closed by server for idleness
+    let pingInterval: NodeJS.Timeout | null = null;
+    const startPing = () => {
+      if (pingInterval) clearInterval(pingInterval);
+      pingInterval = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: "ping" }));
+        }
+      }, 5000); // 5 seconds
+    };
+    const stopPing = () => {
+      if (pingInterval) clearInterval(pingInterval);
+      pingInterval = null;
+    };
+
     ws.addEventListener("open", (event: RwsEvent) => {
+      startPing();
+      // If this is a reconnect (not the first open), call onReconnect
+      if (wasClosed && options.onReconnect) {
+        options.onReconnect(ws);
+      }
+      wasClosed = false;
       options.onOpen?.(event);
     });
     ws.addEventListener("close", (event: RwsCloseEvent) => {
+      stopPing();
+      wasClosed = true;
       options.onClose?.(event);
     });
     ws.addEventListener("error", (event: RwsErrorEvent) => {
@@ -70,10 +104,10 @@ export function useWebSocket(
     });
 
     return () => {
+      stopPing();
       ws.close();
     };
     // Only re-run if url or protocols change
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url, JSON.stringify(options.protocols)]);
 
   return { sendMessage, lastMessage, ws: wsRef.current };
