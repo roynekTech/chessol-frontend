@@ -13,21 +13,18 @@ import {
 } from "lucide-react";
 import { GameModeModal } from "@/components/GameModeModal";
 import { JoinGameModal } from "@/components/JoinGameModal";
-import {
-  IGameDetailsLocalStorage,
-  IListGamesResponse,
-  LocalStorageKeysEnum,
-  LocalStorageRoomTypeEnum,
-} from "../utils/type";
+import { IListGamesResponse, LocalStorageRoomTypeEnum } from "../utils/type";
 import { API_PATHS, PAGE_ROUTES } from "../utils/constants";
 import { useGetData } from "../utils/use-query-hooks";
 import { helperUtil } from "../utils/helper";
-import { localStorageHelper } from "../utils/localStorageHelper";
+import { useChessGameStore } from "../stores/chessGameStore";
 
 export function OngoingGames() {
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
+  const updateGameState = useChessGameStore((state) => state.updateGameState);
+  const deleteGameState = useChessGameStore((state) => state.deleteGameState);
 
   const { data: gamesData, isLoading: isLoadingGames } = useGetData<{
     data: IListGamesResponse[];
@@ -66,11 +63,11 @@ export function OngoingGames() {
   };
 
   const handleSpectateGame = (gameId: string) => {
-    const payload: Partial<IGameDetailsLocalStorage> = {
+    deleteGameState();
+    updateGameState({
       gameId: gameId,
       roomType: LocalStorageRoomTypeEnum.SPECTATOR,
-    };
-    localStorageHelper.setItem(LocalStorageKeysEnum.GameDetails, payload);
+    });
     navigate(PAGE_ROUTES.GamePlay);
   };
 

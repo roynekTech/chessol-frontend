@@ -16,14 +16,11 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import {
   OpponentTypeEnum,
-  IGameDetailsLocalStorage,
   IWSCreatedMessage,
   IWSErrorMessage,
-  LocalStorageKeysEnum,
   LocalStorageRoomTypeEnum,
   WebSocketMessageTypeEnum,
 } from "../utils/type";
-import { localStorageHelper } from "../utils/localStorageHelper";
 import { toast } from "sonner";
 import { useWebSocketContext } from "../context/useWebSocketContext";
 import {
@@ -33,6 +30,7 @@ import {
   LAMPORTS_PER_SOL,
 } from "@solana/web3.js";
 import { ESCROW_ADDRESS, PAGE_ROUTES } from "../utils/constants";
+import { useChessGameStore } from "../stores/chessGameStore";
 
 interface GameModeModalProps {
   open: boolean;
@@ -55,6 +53,9 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
   const { sendMessage, lastMessage } = useWebSocketContext();
   const { connection } = useConnection();
   const { sendTransaction } = useWallet();
+
+  const updateGameState = useChessGameStore((state) => state.updateGameState);
+  const deleteGameState = useChessGameStore((state) => state.deleteGameState);
 
   const handleBetTransaction = async () => {
     if (!walletAddress || !publicKey) {
@@ -198,7 +199,10 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
           return;
         }
 
-        const data: IGameDetailsLocalStorage = {
+        // delete game state before setting new game state
+        deleteGameState();
+
+        updateGameState({
           roomType: LocalStorageRoomTypeEnum.PLAYER,
           opponentType: opponentType,
           gameId: createdMessage.gameId,
@@ -208,8 +212,7 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
           isJoined: true,
           duration: createdMessage?.duration || duration,
           playerWalletAddress: walletAddress,
-        };
-        localStorageHelper.setItem(LocalStorageKeysEnum.GameDetails, data);
+        });
 
         setGameCreated(true);
         setUserClickedCreate(false);

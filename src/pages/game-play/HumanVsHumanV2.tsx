@@ -6,10 +6,7 @@ import { ArrowLeft, Trophy, MessageCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useWebSocketContext } from "../../context/useWebSocketContext";
-import { localStorageHelper } from "../../utils/localStorageHelper";
 import {
-  LocalStorageKeysEnum,
-  IGameDetailsLocalStorage,
   WebSocketMessageTypeEnum,
   IWSErrorMessage,
   IWSGameEndedMessage,
@@ -20,7 +17,6 @@ import {
   IWSReconnectedMessage,
   IGetGameDataMemResponse,
   LocalStorageRoomTypeEnum,
-  IGameState,
 } from "../../utils/type";
 import { calculateCapturedPieces } from "../../utils/chessUtils";
 import { useWallet } from "@solana/wallet-adapter-react";
@@ -41,6 +37,7 @@ import { API_PATHS, PAGE_ROUTES } from "../../utils/constants";
 import { useGetData } from "../../utils/use-query-hooks";
 import { LoaderWithInnerLoader } from "../../components/Loader";
 import { PlayerPanel } from "../../components/game/PlayerPanel";
+import { useChessGameStore } from "../../stores/chessGameStore";
 
 // Sound files
 const MOVE_SOUND_SRC = "/move-sound.wav";
@@ -95,20 +92,15 @@ export function HumanVsHumanV2() {
 
   const moveHighlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Get game details from localStorage, including duration
-  const gameDetails = localStorageHelper.getItem(
-    LocalStorageKeysEnum.GameDetails
-  ) as IGameDetailsLocalStorage | null;
+  const gameState = useChessGameStore((state) => state.gameState);
+  const updateGameState = useChessGameStore((state) => state.updateGameState);
 
-  const gameId = gameDetails?.gameId;
-  if (!gameId) {
-    toast.error("Game has ended, please create a new game");
-    navigate(PAGE_ROUTES.OngoingGames);
-  }
-  const playerColor = (gameDetails?.playerColor || null) as Color | null;
-  const playerWalletAddress = gameDetails?.playerWalletAddress;
+  // Define constants
+  const gameId = gameState?.gameId;
+  const playerColor = (gameState?.playerColor || null) as Color | null;
+  const playerWalletAddress = gameState?.playerWalletAddress;
   const isSpectator =
-    gameDetails?.roomType === LocalStorageRoomTypeEnum.SPECTATOR;
+    gameState?.roomType === LocalStorageRoomTypeEnum.SPECTATOR;
 
   const [walletAddress, setWalletAddress] = useState(playerWalletAddress);
 
@@ -128,61 +120,12 @@ export function HumanVsHumanV2() {
   // fetch game details from memory and check if game ended
   const { data: retrievedGameDetails, isLoading: isLoadingGameDetails } =
     useGetData<IGetGameDataMemResponse>(
-      API_PATHS.getInMemGameDetails(gameId!),
+      API_PATHS.gameFromDbData(gameId!),
       ["gameDetails", gameId!],
       {
         enabled: !!gameId,
       }
     );
-
-  // On mount, try to load saved game state
-  const savedGameState = localStorageHelper.getItem(
-    LocalStorageKeysEnum.GameState
-  );
-  const [gameState, setGameState] = useState<IGameState>(
-    savedGameState && savedGameState.gameId === gameId
-      ? savedGameState
-      : {
-          fen: gameDetails?.fen || game.fen(),
-          playerTurn: "w",
-          selectedSquare: null,
-          validMoves: [],
-          moveHistory: [],
-          capturedPieces: { w: [], b: [] },
-          lastMove: null,
-          winner: null,
-          gameStatus: "Waiting for opponent...",
-          isStarted: true,
-          isOngoing: true,
-          moveHighlight: null,
-          whitePlayerTimerInMilliseconds: gameDetails?.duration,
-          blackPlayerTimerInMilliseconds: gameDetails?.duration,
-        }
-  );
-
-  // Persist gameState to localStorage on every change
-  useEffect(() => {
-    if (gameState && gameId) {
-      // Ensure we're not overwriting the player color
-      const persistedState = {
-        ...gameState,
-        gameId,
-        playerColor: playerColor, // Preserve the original player color
-      };
-
-      localStorageHelper.setItem(
-        LocalStorageKeysEnum.GameState,
-        persistedState
-      );
-    }
-  }, [gameState, gameId, playerColor]);
-
-  // Clean up game state in localStorage if gameId changes or on game end
-  useEffect(() => {
-    return () => {
-      localStorageHelper.deleteItem(LocalStorageKeysEnum.GameState);
-    };
-  }, [gameId]);
 
   // Clean up move highlight timeout on unmount
   useEffect(() => {
@@ -201,10 +144,9 @@ export function HumanVsHumanV2() {
 
     // check if game is ended
     if (gameState.isEnded) {
-      setGameState((prev) => ({
-        ...prev,
+      updateGameState({
         gameStatus: "Game is ended, proceed to creating a new game",
-      }));
+      });
       return;
     }
 
@@ -223,10 +165,13 @@ export function HumanVsHumanV2() {
     }, 2000);
 
     // Update UI to show reconnection attempt
-    setGameState((prev) => ({
-      ...prev,
+    // setGameState((prev) => ({
+    //   ...prev,
+    //   gameStatus: "Attempting to reconnect...",
+    // }));
+    updateGameState({
       gameStatus: "Attempting to reconnect...",
-    }));
+    });
   }, [navigate]);
 
   // --- Helper: Format Game Ended Message ---
@@ -314,8 +259,7 @@ export function HumanVsHumanV2() {
               lastMove = moveMsg.lastMove as { from: Square; to: Square };
             }
 
-            setGameState((prev) => ({
-              ...prev,
+            updateGameState({
               fen: game.fen(),
               playerTurn: game.turn() as Color,
               moveHistory: game.history(),
@@ -330,7 +274,7 @@ export function HumanVsHumanV2() {
                   : `Waiting for ${
                       game.turn() === "w" ? "white" : "black"
                     } to move`,
-            }));
+            });
 
             // Clear any previous timeout and set a new one
             if (moveHighlightTimeoutRef.current) {
@@ -339,10 +283,9 @@ export function HumanVsHumanV2() {
 
             // Longer timeout (4 seconds)
             moveHighlightTimeoutRef.current = setTimeout(() => {
-              setGameState((prev) => ({
-                ...prev,
+              updateGameState({
                 moveHighlight: null,
-              }));
+              });
             }, 4000); // Increased to 4 seconds
           }
           break;
@@ -351,12 +294,12 @@ export function HumanVsHumanV2() {
         case WebSocketMessageTypeEnum.GameEnded: {
           const endedMsg = messageData as IWSGameEndedMessage;
           const { winner, statusText } = processGameEndedMessage(endedMsg);
-          setGameState((prev) => ({
-            ...prev,
+
+          updateGameState({
             winner,
             gameStatus: statusText,
             isEnded: true,
-          }));
+          });
           break;
         }
 
@@ -364,37 +307,17 @@ export function HumanVsHumanV2() {
           const joinedMsg = messageData as IWSJoinedMessage;
 
           if (joinedMsg.gameId === gameId) {
-            if (gameDetails) {
-              const updatedGameDetails = {
-                ...gameDetails,
-                fen: joinedMsg.fen || gameDetails.fen,
-                duration: joinedMsg.duration || gameDetails.duration,
-                playerColor: gameDetails.playerColor,
-              };
-              localStorageHelper.setItem(
-                LocalStorageKeysEnum.GameDetails,
-                updatedGameDetails
-              );
-            }
-
-            setGameState((prev) => ({
-              ...prev,
-              gameStatus:
-                stablePlayerColor === "w"
-                  ? "Your turn to move"
-                  : "Waiting for white to move",
-            }));
-
             if (joinedMsg.fen) {
               game.load(joinedMsg.fen);
               const initialCapturedPieces = calculateCapturedPieces(
                 game.board()
               );
-              setGameState((prev) => ({
-                ...prev,
+
+              updateGameState({
                 fen: game.fen(),
                 playerTurn: game.turn() as Color,
                 moveHistory: game.history(),
+                duration: joinedMsg?.duration || gameState?.duration,
                 capturedPieces: initialCapturedPieces,
                 gameStatus:
                   game.turn() === stablePlayerColor
@@ -402,7 +325,7 @@ export function HumanVsHumanV2() {
                     : `Waiting for ${
                         game.turn() === "w" ? "white" : "black"
                       } to move`,
-              }));
+              });
             }
           }
           break;
@@ -416,14 +339,11 @@ export function HumanVsHumanV2() {
             game.load(reconnectedMsg.fen);
             const newCapturedPieces = calculateCapturedPieces(game.board());
 
-            setGameState((prev) => ({
-              ...prev,
+            updateGameState({
               fen: game.fen(),
               playerTurn: game.turn() as Color,
               moveHistory: game.history(),
               capturedPieces: newCapturedPieces,
-              isOpponentConnected: true,
-              isTimerRunning: reconnectedMsg.status === "active",
               gameStatus: game.isGameOver()
                 ? `Game ${reconnectedMsg.status}`
                 : game.turn() === stablePlayerColor
@@ -431,19 +351,7 @@ export function HumanVsHumanV2() {
                 : `Waiting for ${
                     game.turn() === "w" ? "white" : "black"
                   } to move`,
-            }));
-
-            // Update localStorage with reconnected game details if needed
-            const currentGameDetails = localStorageHelper.getItem(
-              LocalStorageKeysEnum.GameDetails
-            ) as IGameDetailsLocalStorage;
-
-            if (currentGameDetails) {
-              localStorageHelper.setItem(LocalStorageKeysEnum.GameDetails, {
-                ...currentGameDetails,
-                fen: reconnectedMsg.fen,
-              });
-            }
+            });
           }
           break;
         }
@@ -493,7 +401,6 @@ export function HumanVsHumanV2() {
       // Now continue with piece selection and move logic
       if (!gameState.selectedSquare) {
         const piece = game.get(square);
-        console.log("piece", piece);
 
         // Check if the selected piece belongs to the player
         if (piece?.color === stablePlayerColor) {
@@ -501,18 +408,17 @@ export function HumanVsHumanV2() {
             square,
             verbose: true,
           });
-          console.log("legalMoves", legalMoves);
-          setGameState((prev) => ({
-            ...prev,
+
+          updateGameState({
             selectedSquare: square,
             validMoves: legalMoves.map((m) => m.to as Square),
-          }));
+          });
         } else if (piece) {
           // If player selected opponent's piece
           toast.error("You can only move your own pieces!");
         }
       } else {
-        if (gameState.validMoves.includes(square)) {
+        if (gameState?.validMoves?.includes(square)) {
           try {
             const initialFen = game.fen();
             const move = game.move({
@@ -543,9 +449,7 @@ export function HumanVsHumanV2() {
               // Send move message to the server
               sendMessage(JSON.stringify(moveMessage));
 
-              // Update local state with the move highlight
-              setGameState((prev) => ({
-                ...prev,
+              updateGameState({
                 fen: game.fen(),
                 playerTurn: game.turn() as Color,
                 moveHistory: game.history(),
@@ -556,19 +460,18 @@ export function HumanVsHumanV2() {
                 gameStatus: `Waiting for ${
                   game.turn() === "w" ? "white" : "black"
                 } to move`,
-              }));
+              });
 
               // Clear any previous timeout and set a new one
               if (moveHighlightTimeoutRef.current) {
                 clearTimeout(moveHighlightTimeoutRef.current);
               }
 
-              // Set a longer timeout (3 seconds)
+              // Remove move highlight after 3 seconds
               moveHighlightTimeoutRef.current = setTimeout(() => {
-                setGameState((prev) => ({
-                  ...prev,
+                updateGameState({
                   moveHighlight: null,
-                }));
+                });
               }, 3000);
             }
           } catch (error) {
@@ -577,12 +480,10 @@ export function HumanVsHumanV2() {
           }
         }
 
-        // Always clear selection after an attempt to move, whether valid or not
-        setGameState((prev) => ({
-          ...prev,
+        updateGameState({
           selectedSquare: null,
           validMoves: [],
-        }));
+        });
       }
     },
     [
@@ -627,7 +528,7 @@ export function HumanVsHumanV2() {
               ];
             const isLight = (rankIndex + fileIndex) % 2 === 0;
             const isSelected = square === gameState.selectedSquare;
-            const isValidMove = gameState.validMoves.includes(square);
+            const isValidMove = gameState?.validMoves?.includes(square);
             const isLastMove =
               gameState.lastMove &&
               (square === gameState.lastMove.from ||
@@ -728,113 +629,6 @@ export function HumanVsHumanV2() {
     );
   };
 
-  // Render player panel
-  // const PlayerPanel = ({ color }: { color: Color }) => {
-  //   // Use the stable orientation for player identity as well
-  //   const isPlayer = stablePlayerColor === color;
-  //   const player = {
-  //     name: isPlayer ? "You" : "Opponent",
-  //   };
-  //   const isCurrentTurn = gameState.playerTurn === color;
-  //   const timeRemaining =
-  //     color === "w"
-  //       ? gameState.whitePlayerTimerInMilliseconds
-  //       : gameState.blackPlayerTimerInMilliseconds;
-  //   const capturedPieces = gameState.capturedPieces[color];
-
-  //   // Use the stable orientation for panel positioning
-  //   const shouldBeTop =
-  //     stablePlayerColor === "w" ? color === "b" : color === "w";
-
-  //   return (
-  //     <div
-  //       className={`
-  //         bg-gray-900/60 backdrop-blur-sm rounded-xl p-3 sm:p-4
-  //         border ${
-  //           isCurrentTurn ? "border-amber-500/50" : "border-amber-900/20"
-  //         } shadow-lg
-  //         ${shouldBeTop ? "mb-4 sm:mb-8" : "mt-4 sm:mt-8"}
-  //       `}
-  //     >
-  //       <div className="flex items-center justify-between">
-  //         <div className="flex items-center space-x-2 sm:space-x-3">
-  //           <Avatar
-  //             className={
-  //               isPlayer
-  //                 ? "ring-2 ring-amber-500 w-8 h-8 sm:w-10 sm:h-10"
-  //                 : "w-8 h-8 sm:w-10 sm:h-10"
-  //             }
-  //           >
-  //             <AvatarFallback
-  //               className={
-  //                 isPlayer
-  //                   ? "bg-amber-700 text-sm sm:text-base"
-  //                   : "bg-gray-700 text-sm sm:text-base"
-  //               }
-  //             >
-  //               {player.name[0]}
-  //             </AvatarFallback>
-  //           </Avatar>
-  //           <div>
-  //             <h3 className="font-semibold text-white flex items-center flex-wrap gap-1 sm:gap-2 text-sm sm:text-base">
-  //               {player.name}
-  //               {isPlayer && (
-  //                 <span className="text-xs bg-amber-600/30 border border-amber-600/50 px-1 py-0.5 sm:px-2 sm:py-0.5 rounded-full">
-  //                   You
-  //                 </span>
-  //               )}
-  //               {isCurrentTurn && (
-  //                 <span className="text-xs bg-green-600/30 border border-green-600/50 px-1 py-0.5 sm:px-2 sm:py-0.5 rounded-full">
-  //                   {isPlayer ? "Your Turn" : "Turn"}
-  //                 </span>
-  //               )}
-  //             </h3>
-  //             <p className="text-xs sm:text-sm text-gray-400">
-  //               {color === "w" ? "White" : "Black"}
-  //             </p>
-  //           </div>
-  //         </div>
-  //         <div
-  //           className={`text-lg sm:text-2xl font-mono font-bold ${
-  //             timeRemaining <= 30 ? "text-red-500" : "text-white"
-  //           }`}
-  //         >
-  //           {formatTime(timeRemaining)}
-  //         </div>
-  //       </div>
-
-  //       {/* Captured Pieces - made more responsive */}
-  //       {capturedPieces.length > 0 && (
-  //         <div className="mt-2 sm:mt-3 flex flex-wrap gap-1">
-  //           {capturedPieces.map((piece, index) => (
-  //             <motion.div
-  //               key={`${piece.type}-${index}`}
-  //               initial={{ scale: 0, opacity: 0 }}
-  //               animate={{ scale: 1, opacity: 0.8 }}
-  //               className="w-5 h-5 sm:w-6 sm:h-6"
-  //             >
-  //               <img
-  //                 src={`https://www.chess.com/chess-themes/pieces/neo/150/${piece.color}${piece.type}.png`}
-  //                 alt={`${piece.color}${piece.type}`}
-  //                 className="w-full h-full object-contain opacity-75"
-  //               />
-  //             </motion.div>
-  //           ))}
-  //         </div>
-  //       )}
-
-  //       {isCurrentTurn && (
-  //         <div className="mt-2 h-1 w-full bg-amber-500/30 rounded-full overflow-hidden">
-  //           <div
-  //             className="h-full bg-amber-500 animate-pulse"
-  //             style={{ width: "100%" }}
-  //           />
-  //         </div>
-  //       )}
-  //     </div>
-  //   );
-  // };
-
   const [showResignDialog, setShowResignDialog] = useState(false);
   const resignSentRef = useRef(false);
 
@@ -855,12 +649,13 @@ export function HumanVsHumanV2() {
       walletAddress,
     };
     sendMessage(JSON.stringify(resignMsg));
-    setGameState((prev) => ({
-      ...prev,
+
+    updateGameState({
       isEnded: true,
       winner: stablePlayerColor === "w" ? "b" : "w", // Opponent wins
       gameStatus: "You resigned. Game ended.",
-    }));
+    });
+
     setShowResignDialog(false);
   }, [
     gameId,
@@ -873,42 +668,34 @@ export function HumanVsHumanV2() {
   // --- Timer logic: only decrement current player's timer when game is ongoing ---
   useEffect(() => {
     if (gameState.isEnded) return;
+
     const interval = setInterval(() => {
-      setGameState((prev) => {
-        if (prev.isEnded) return prev;
-        // Only decrement the timer for the player whose turn it is
-        let w = prev.whitePlayerTimerInMilliseconds;
-        let b = prev.blackPlayerTimerInMilliseconds;
-        if (prev.playerTurn === "w") {
-          w = Math.max(0, w - 1000);
-        } else if (prev.playerTurn === "b") {
-          b = Math.max(0, b - 1000);
-        }
-        // If timer hits zero and it's our turn, auto-resign
-        if (
-          prev.playerTurn === stablePlayerColor &&
-          ((prev.playerTurn === "w" && w <= 0) ||
-            (prev.playerTurn === "b" && b <= 0)) &&
-          !resignSentRef.current &&
-          !prev.isEnded
-        ) {
-          handleResign();
-        }
-        // Update localStorage here as well
-        localStorageHelper.updateItem(LocalStorageKeysEnum.GameState, {
-          ...prev,
-          whitePlayerTimerInMilliseconds: w,
-          blackPlayerTimerInMilliseconds: b,
-        });
-        return {
-          ...prev,
-          whitePlayerTimerInMilliseconds: w,
-          blackPlayerTimerInMilliseconds: b,
-        };
+      let wRemainingTime = gameState.whitePlayerTimerInMilliseconds;
+      let bRemainingTime = gameState.blackPlayerTimerInMilliseconds;
+
+      if (gameState.playerTurn === "w") {
+        wRemainingTime = Math.max(0, wRemainingTime - 1000);
+      } else {
+        bRemainingTime = Math.max(0, bRemainingTime - 1000);
+      }
+
+      // if timer hits zero and it's current user turn to play , then auto resign
+      if (
+        gameState.playerTurn === stablePlayerColor &&
+        !gameState.isEnded &&
+        (wRemainingTime <= 0 || bRemainingTime <= 0)
+      ) {
+        handleResign();
+      }
+
+      updateGameState({
+        whitePlayerTimerInMilliseconds: wRemainingTime,
+        blackPlayerTimerInMilliseconds: bRemainingTime,
       });
     }, 1000);
     return () => clearInterval(interval);
   }, [
+    gameState,
     gameState.playerTurn,
     gameState.isEnded,
     handleResign,
@@ -916,8 +703,8 @@ export function HumanVsHumanV2() {
   ]);
 
   useEffect(() => {
-    if (savedGameState && savedGameState.fen) {
-      game.load(savedGameState.fen);
+    if (gameState && gameState.fen) {
+      game.load(gameState.fen);
     }
   }, []);
 

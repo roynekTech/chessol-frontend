@@ -4,7 +4,6 @@ import { Copy, Crown, LogOut } from "lucide-react";
 import { localStorageHelper } from "../utils/localStorageHelper";
 import {
   LocalStorageKeysEnum,
-  IGameDetailsLocalStorage,
   IWSPairedMessage,
 } from "../utils/type";
 import { useNavigate } from "react-router-dom";
@@ -25,6 +24,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { PAGE_ROUTES } from "../utils/constants";
+import { useChessGameStore } from "../stores/chessGameStore";
 
 // Array of chess tips/facts for engagement
 const CHESS_TIPS = [
@@ -47,19 +47,17 @@ export function Lobby() {
   const [tip, setTip] = useState<string>("");
   const navigate = useNavigate();
   const { lastMessage } = useWebSocketContext();
+  const gameState = useChessGameStore((state) => state.gameState);
 
   // Fetch game details from localStorage and set a random tip and game ID
   useEffect(() => {
-    const details = localStorageHelper.getItem(
-      LocalStorageKeysEnum.GameDetails
-    ) as IGameDetailsLocalStorage | null;
-    if (!details) {
+    if (!gameState) {
       window.location.href = PAGE_ROUTES.OngoingGames;
       return;
     }
 
-    if (details?.gameId) {
-      setGameId(details.gameId);
+    if (gameState?.gameId) {
+      setGameId(gameState.gameId);
     }
 
     // Pick a random tip

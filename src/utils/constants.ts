@@ -5,6 +5,10 @@ export const API_PATHS = {
     return `gameDataMem/${gameId}`;
   },
 
+  gameFromDbData: (gameId: string) => {
+    return `gameData/${gameId}`;
+  },
+
   listGames: () => {
     return "listGames";
   },

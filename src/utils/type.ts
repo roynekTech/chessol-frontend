@@ -289,18 +289,6 @@ export enum OpponentTypeEnum {
   Computer = "computer",
 }
 
-export interface IGameDetailsLocalStorage {
-  roomType: LocalStorageRoomTypeEnum;
-  opponentType: OpponentTypeEnum;
-  gameId: string;
-  fen: string;
-  isBetting: boolean;
-  playerColor?: SideEnum | string;
-  isJoined: boolean;
-  duration?: number;
-  playerWalletAddress: string;
-}
-
 export interface IGetBestMovePayload {
   fen: string;
   game_id: string;
@@ -361,6 +349,13 @@ export interface IWSDrawMessage {
 
 // state interface for the game
 export interface IGameState {
+  roomType: LocalStorageRoomTypeEnum;
+  opponentType: OpponentTypeEnum;
+  gameId: string;
+  isBetting: boolean;
+  duration: number;
+  playerWalletAddress: string;
+  isJoined: boolean;
   fen: string;
   playerColor: Color;
   playerTurn: Color;

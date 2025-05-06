@@ -8,17 +8,19 @@ import { Avatar, AvatarFallback } from "../ui/avatar";
 export function PlayerPanel({ color }: { color: Color }) {
   const gameState = useChessGameStore((state) => state.gameState);
 
+  // console.log("game state player panel", gameState);
+
   const playerTurn = gameState.playerTurn;
   const playerColor = gameState.playerColor;
 
   // Use the stable orientation for player identity as well
-  const isPlayer = playerTurn === playerColor;
+  const isPlayer = color === playerColor;
   const player = {
     name: isPlayer ? "You" : "Opponent",
   };
   const isCurrentTurn = playerTurn === playerColor;
   const timeRemaining =
-    playerColor === "w"
+    color === "w"
       ? gameState.whitePlayerTimerInMilliseconds
       : gameState.blackPlayerTimerInMilliseconds;
   const capturedPieces = gameState.capturedPieces[gameState.playerColor];

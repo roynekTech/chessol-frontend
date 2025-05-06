@@ -14,8 +14,6 @@ import { Label } from "@/components/ui/label";
 import { LogIn, Info, DollarSign } from "lucide-react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import {
-  IGameDetailsLocalStorage,
-  LocalStorageKeysEnum,
   WebSocketMessageTypeEnum,
   IWSJoinedMessage,
   IWSErrorMessage,
@@ -24,7 +22,6 @@ import {
   LocalStorageRoomTypeEnum,
   OpponentTypeEnum,
 } from "../utils/type";
-import { localStorageHelper } from "../utils/localStorageHelper";
 import { toast } from "sonner";
 import { useWebSocketContext } from "../context/useWebSocketContext";
 import { useGetData } from "../utils/use-query-hooks";
@@ -35,6 +32,8 @@ import {
   SystemProgram,
   Transaction,
 } from "@solana/web3.js";
+import { useChessGameStore } from "../stores/chessGameStore";
+import { Color } from "chess.js";
 
 interface IJoinGameModalProps {
   open: boolean;
@@ -55,6 +54,9 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
   const [fetchGameErrorMsg, setFetchGameErrorMsg] = useState<string>("");
   const [retrievedGameDetails, setRetrievedGameDetails] =
     useState<IGetGameDataMemResponse | null>(null);
+
+  const updateGameState = useChessGameStore((state) => state.updateGameState);
+  const deleteGameState = useChessGameStore((state) => state.deleteGameState);
 
   // fetch game details
   const {
@@ -255,18 +257,22 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
 
     if (messageData.type === WebSocketMessageTypeEnum.Joined) {
       const joinedMessage = messageData;
-      const data: IGameDetailsLocalStorage = {
+
+      // delete game state before setting new game state
+      deleteGameState();
+
+      updateGameState({
         roomType: LocalStorageRoomTypeEnum.PLAYER,
         opponentType: OpponentTypeEnum.Human,
         gameId: joinedMessage.gameId,
         fen: joinedMessage.fen,
         isBetting: joinedMessage.isBetting,
-        playerColor: joinedMessage.color,
+        playerColor: joinedMessage.color as Color,
         isJoined: true,
         duration: joinedMessage.duration,
         playerWalletAddress: walletAddress,
-      };
-      localStorageHelper.setItem(LocalStorageKeysEnum.GameDetails, data);
+      });
+
       setIsJoining(false);
       onOpenChange(false);
       navigate(PAGE_ROUTES.GamePlay);
