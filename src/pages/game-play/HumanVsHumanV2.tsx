@@ -17,6 +17,7 @@ import {
   IWSReconnectedMessage,
   IGetGameDataMemResponse,
   LocalStorageRoomTypeEnum,
+  IWSViewingGameMessage,
 } from "../../utils/type";
 import { calculateCapturedPieces } from "../../utils/chessUtils";
 import { useWallet } from "@solana/wallet-adapter-react";
@@ -371,6 +372,18 @@ export function HumanVsHumanV2() {
           break;
         }
 
+        case WebSocketMessageTypeEnum.ViewingGame: {
+          const viewingMsg = messageData as IWSViewingGameMessage;
+          if (viewingMsg.fen) {
+            game.load(viewingMsg.fen);
+            updateGameState({
+              fen: game.fen(),
+              playerTurn: game.turn() as Color,
+            });
+          }
+          break;
+        }
+
         case WebSocketMessageTypeEnum.Error: {
           const errorMsg = messageData as IWSErrorMessage;
           // check if game ended
@@ -388,10 +401,26 @@ export function HumanVsHumanV2() {
     }
   }, [lastMessage, game, gameId, playerColor, playSound, stablePlayerColor]);
 
-  // Handle square click updates
+  // --- Spectator: Send viewGame message on mount ---
+  useEffect(() => {
+    if (isSpectator && gameId) {
+      setTimeout(() => {
+        sendMessage(
+          JSON.stringify({
+            type: WebSocketMessageTypeEnum.ViewGame,
+            gameId,
+          })
+        );
+        updateGameState({ gameStatus: "Spectating game..." });
+      }, 1000); // 1 second delay
+    }
+  }, [isSpectator, gameId, sendMessage, updateGameState]);
+
+  // --- Spectator: Disable all board interactions ---
   const handleSquareClick = useCallback(
     (square: Square) => {
       if (isSpectator) {
+        // Spectators cannot interact with the board
         return;
       }
       // --- Prevent move if waiting for backend ---
@@ -508,6 +537,14 @@ export function HumanVsHumanV2() {
       toast,
     ]
   );
+
+  // --- Spectator: If game not found or deleted, show error and return to Ongoing Games ---
+  useEffect(() => {
+    if (!isLoadingGameDetails && !retrievedGameDetails && isSpectator) {
+      toast.error("Game not found or has ended.");
+      navigate(PAGE_ROUTES.OngoingGames);
+    }
+  }, [isLoadingGameDetails, retrievedGameDetails, isSpectator, navigate]);
 
   // Render chess board
   const renderBoard = () => {
@@ -752,13 +789,28 @@ export function HumanVsHumanV2() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-950 to-black text-white">
-      {/* Chat Dropdown Overlay */}
+      {/* --- Spectator Banner and Exit Button --- */}
+      {isSpectator && (
+        <div className="w-full flex flex-col sm:flex-row items-center justify-between bg-blue-900/80 border-b border-blue-700/40 px-4 py-2 mb-4 rounded-b-xl shadow-lg z-20">
+          <span className="text-blue-300 font-bold text-lg sm:text-xl flex items-center gap-2">
+            👁️ Spectating
+          </span>
+          <button
+            className="bg-blue-700 hover:bg-blue-600 text-white font-semibold px-4 py-1.5 rounded-lg shadow transition-all cursor-pointer mt-2 sm:mt-0"
+            onClick={() => navigate(PAGE_ROUTES.OngoingGames)}
+          >
+            Exit Spectate
+          </button>
+        </div>
+      )}
+      {/* Chat Dropdown Overlay: Spectators see chat as read-only or hidden if not allowed */}
       <ChatDropdown
         gameId={String(gameId)}
         walletAddress={String(walletAddress)}
         open={showChat}
         onOpenChange={setShowChat}
         onUnreadMessage={setUnreadMessagesCount}
+        readOnly={isSpectator} // Pass readOnly prop for spectators
       />
       {/* Background effects */}
       <div className="fixed inset-0 z-0">
@@ -773,68 +825,69 @@ export function HumanVsHumanV2() {
             variant="ghost"
             onClick={() => navigate("/games")}
             className="text-gray-300 hover:text-black self-start"
+            disabled={isSpectator} // Spectators cannot go back to lobby, use Exit Spectate instead
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Lobby
           </Button>
           <div className="flex items-center gap-2 sm:gap-4 self-end sm:self-auto">
-            <Button
-              variant="outline"
-              className={`gap-1 sm:gap-2 text-black cursor-pointer text-xs sm:text-sm relative ${
-                isSpectator ? "hidden" : ""
-              }`}
-              size="sm"
-              onClick={() => setShowChat(true)}
-              aria-label="Open chat"
-            >
-              {/* show number of unread messages for user */}
-              <span
-                className="absolute -top-2 -right-2 min-w-[20px] h-[20px] flex items-center justify-center bg-red-600 text-white text-xs font-bold rounded-full shadow-lg z-10 px-1.5 border-2 border-white"
-                aria-label={`${unreadMessagesCount} unread messages`}
-              >
-                {unreadMessagesCount}
-              </span>
-
-              <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4" />
-              <span className="hidden sm:inline">Chat</span>
-            </Button>
-
-            {/* Resign Dialog */}
-            <AlertDialog
-              open={showResignDialog}
-              onOpenChange={setShowResignDialog}
-            >
-              <AlertDialogTrigger asChild>
+            {/* --- Hide chat and resign for spectators --- */}
+            {!isSpectator && (
+              <>
                 <Button
-                  variant="destructive"
-                  className={`gap-1 sm:gap-2 cursor-pointer text-xs sm:text-sm ${
-                    isSpectator ? "hidden" : ""
-                  }`}
+                  variant="outline"
+                  className={`gap-1 sm:gap-2 text-black cursor-pointer text-xs sm:text-sm relative`}
                   size="sm"
-                  onClick={() => setShowResignDialog(true)}
-                  disabled={gameState.isEnded}
+                  onClick={() => setShowChat(true)}
+                  aria-label="Open chat"
                 >
-                  Resign
+                  <span
+                    className="absolute -top-2 -right-2 min-w-[20px] h-[20px] flex items-center justify-center bg-red-600 text-white text-xs font-bold rounded-full shadow-lg z-10 px-1.5 border-2 border-white"
+                    aria-label={`${unreadMessagesCount} unread messages`}
+                  >
+                    {unreadMessagesCount}
+                  </span>
+                  <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">Chat</span>
                 </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Confirm Resignation</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Are you sure you want to resign? This will end the game and
-                    your opponent will be declared the winner.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel onClick={() => setShowResignDialog(false)}>
-                    Cancel
-                  </AlertDialogCancel>
-                  <AlertDialogAction onClick={handleResign} autoFocus>
-                    Yes, Resign
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+                {/* Resign Dialog */}
+                <AlertDialog
+                  open={showResignDialog}
+                  onOpenChange={setShowResignDialog}
+                >
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="destructive"
+                      className={`gap-1 sm:gap-2 cursor-pointer text-xs sm:text-sm`}
+                      size="sm"
+                      onClick={() => setShowResignDialog(true)}
+                      disabled={gameState.isEnded}
+                    >
+                      Resign
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Confirm Resignation</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to resign? This will end the game
+                        and your opponent will be declared the winner.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel
+                        onClick={() => setShowResignDialog(false)}
+                      >
+                        Cancel
+                      </AlertDialogCancel>
+                      <AlertDialogAction onClick={handleResign} autoFocus>
+                        Yes, Resign
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </>
+            )}
           </div>
         </div>
 

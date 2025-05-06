@@ -375,4 +375,12 @@ export interface IGameState {
   moveHighlight: { from: Square; to: Square } | null;
   whitePlayerTimerInMilliseconds: number;
   blackPlayerTimerInMilliseconds: number;
+  /**
+   * Wallet address for the white player (if available)
+   */
+  player1Wallet?: string;
+  /**
+   * Wallet address for the black player (if available)
+   */
+  player2Wallet?: string;
 }

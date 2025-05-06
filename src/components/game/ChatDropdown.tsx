@@ -20,6 +20,10 @@ interface ChatDropdownProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUnreadMessage: (count: number) => void;
+  /**
+   * If true, chat is read-only (for spectators)
+   */
+  readOnly?: boolean;
 }
 
 export const ChatDropdown: React.FC<ChatDropdownProps> = ({
@@ -28,6 +32,7 @@ export const ChatDropdown: React.FC<ChatDropdownProps> = ({
   open,
   onOpenChange,
   onUnreadMessage,
+  readOnly = false,
 }) => {
   const { sendMessage, lastMessage } = useWebSocketContext();
   const [messages, setMessages] = useState<IChatMessage[]>([]);
@@ -218,28 +223,38 @@ export const ChatDropdown: React.FC<ChatDropdownProps> = ({
             ))}
             <div ref={messagesEndRef} />
           </div>
-          <div className="flex items-center gap-2 px-4 py-3 border-t border-gray-800/60 bg-black/30">
-            <Input
-              ref={inputRef}
-              className="flex-1 bg-gray-900/80 border-gray-700 text-white rounded-lg focus:ring-amber-500 focus:border-amber-500"
-              placeholder="Type your message..."
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              maxLength={200}
-              aria-label="Chat message input"
-              disabled={sending}
-            />
-            <Button
-              variant="default"
-              className="bg-gradient-to-r from-amber-500 to-orange-600 text-white px-4 py-2 rounded-lg shadow flex items-center gap-2"
-              onClick={handleSend}
-              disabled={!input.trim() || sending}
-              aria-label="Send message"
-            >
-              {sending ? <Loader2 className="animate-spin w-4 h-4" /> : "Send"}
-            </Button>
-          </div>
+          {!readOnly ? (
+            <div className="flex items-center gap-2 px-4 py-3 border-t border-gray-800/60 bg-black/30">
+              <Input
+                ref={inputRef}
+                className="flex-1 bg-gray-900/80 border-gray-700 text-white rounded-lg focus:ring-amber-500 focus:border-amber-500"
+                placeholder="Type your message..."
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                maxLength={200}
+                aria-label="Chat message input"
+                disabled={sending}
+              />
+              <Button
+                variant="default"
+                className="bg-gradient-to-r from-amber-500 to-orange-600 text-white px-4 py-2 rounded-lg shadow flex items-center gap-2"
+                onClick={handleSend}
+                disabled={!input.trim() || sending}
+                aria-label="Send message"
+              >
+                {sending ? (
+                  <Loader2 className="animate-spin w-4 h-4" />
+                ) : (
+                  "Send"
+                )}
+              </Button>
+            </div>
+          ) : (
+            <div className="px-4 py-3 border-t border-gray-800/60 bg-black/30 text-gray-400 text-xs text-center select-none">
+              Chat is read-only for spectators.
+            </div>
+          )}
           {error && (
             <div className="px-4 pb-2 text-red-400 text-xs text-center">
               {error}

@@ -1,9 +1,10 @@
-// import { Avatar, AvatarFallback } from "@radix-ui/react-avatar";
 import { useChessGameStore } from "../../stores/chessGameStore";
 import { formatTime } from "../../utils/chessUtils";
 import { motion } from "framer-motion";
 import { Color } from "chess.js";
 import { Avatar, AvatarFallback } from "../ui/avatar";
+import { LocalStorageRoomTypeEnum } from "../../utils/type";
+import { helperUtil } from "../../utils/helper";
 
 export function PlayerPanel({ color }: { color: Color }) {
   const gameState = useChessGameStore((state) => state.gameState);
@@ -15,9 +16,32 @@ export function PlayerPanel({ color }: { color: Color }) {
 
   // Use the stable orientation for player identity as well
   const isPlayer = color === playerColor;
-  const player = {
-    name: isPlayer ? "You" : "Opponent",
-  };
+  let playerObject: { name: string; wallet?: string };
+
+  // TODO: add the wallet address once it's available in the state and use it for the avatar
+  let walletAddress = "";
+  if (gameState.roomType === LocalStorageRoomTypeEnum.PLAYER) {
+    playerObject = {
+      name: isPlayer ? "You" : "Opponent",
+      wallet: gameState.playerWalletAddress,
+    };
+    walletAddress = gameState.playerWalletAddress || "player";
+  } else {
+    // For spectators, show the actual wallet addresses if available
+    if (color === "w" && gameState.player1Wallet) {
+      walletAddress = gameState.player1Wallet;
+    } else if (color === "b" && gameState.player2Wallet) {
+      walletAddress = gameState.player2Wallet;
+    } else {
+      walletAddress = color === "w" ? "player1" : "player2";
+    }
+    playerObject = {
+      name: helperUtil?.shortenWalletAddress
+        ? helperUtil.shortenWalletAddress(walletAddress)
+        : walletAddress,
+      wallet: walletAddress,
+    };
+  }
   const isCurrentTurn = playerTurn === playerColor;
   const timeRemaining =
     color === "w"
@@ -47,6 +71,19 @@ export function PlayerPanel({ color }: { color: Color }) {
                 : "w-8 h-8 sm:w-10 sm:h-10"
             }
           >
+            {/* DiceBear avatar based on wallet address or fallback */}
+            <img
+              src={`https://api.dicebear.com/7.x/adventurer-neutral/svg?seed=${encodeURIComponent(
+                playerObject.name
+              )}`}
+              alt={playerObject.name}
+              className="w-full h-full object-cover rounded-full"
+              draggable={false}
+              onError={(e) => {
+                // fallback to AvatarFallback if image fails
+                (e.target as HTMLImageElement).style.display = "none";
+              }}
+            />
             <AvatarFallback
               className={
                 isPlayer
@@ -54,12 +91,12 @@ export function PlayerPanel({ color }: { color: Color }) {
                   : "bg-gray-700 text-sm sm:text-base"
               }
             >
-              {player.name[0]}
+              {playerObject.name[0]}
             </AvatarFallback>
           </Avatar>
           <div>
             <h3 className="font-semibold text-white flex items-center flex-wrap gap-1 sm:gap-2 text-sm sm:text-base">
-              {player.name}
+              {playerObject.name}
               {isPlayer && (
                 <span className="text-xs bg-amber-600/30 border border-amber-600/50 px-1 py-0.5 sm:px-2 sm:py-0.5 rounded-full">
                   You
