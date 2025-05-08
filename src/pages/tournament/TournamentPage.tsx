@@ -1,446 +1,440 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Trophy,
-  Users,
   Calendar,
-  Clock,
-  ChevronRight,
-  PlusCircle,
+  Users,
+  ArrowLeft,
+  RefreshCw,
+  Plus,
 } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-
-// Tournament form interface
-interface TournamentForm {
-  name: string;
-  description: string;
-  startDate: string;
-  maxParticipants: string;
-  timeControl: string;
-  entryFee: string;
-}
-
-// Mock data for demonstration
-const mockTournaments = [
-  {
-    id: 1,
-    name: "Grand Chess Championship",
-    description: "The ultimate chess showdown for chess lovers.",
-    startDate: new Date(),
-    participants: 32,
-    maxParticipants: 64,
-    status: "ongoing",
-    prize: "5 SOL",
-    timeControl: "5+3",
-  },
-  {
-    id: 2,
-    name: "Blitz Masters",
-    description: "Fast-paced chess tournament for adrenaline seekers.",
-    startDate: new Date(Date.now() + 86400000),
-    participants: 16,
-    maxParticipants: 16,
-    status: "upcoming",
-    prize: "2 SOL",
-    timeControl: "3+2",
-  },
-];
-
-// Mock bracket data
-const mockBracket = {
-  rounds: [
-    {
-      name: "Quarter Finals",
-      matches: [
-        { player1: "Alice", player2: "Bob", score: "1-0", winner: "Alice" },
-        { player1: "Carol", player2: "Dave", score: "½-½", winner: null },
-        { player1: "Eve", player2: "Frank", score: "0-1", winner: "Frank" },
-        { player1: "Grace", player2: "Heidi", score: "1-0", winner: "Grace" },
-      ],
-    },
-    {
-      name: "Semi Finals",
-      matches: [
-        { player1: "Alice", player2: "Frank", score: "1-0", winner: "Alice" },
-        { player1: "Grace", player2: "Carol", score: "0-1", winner: "Carol" },
-      ],
-    },
-    {
-      name: "Finals",
-      matches: [
-        { player1: "Alice", player2: "Carol", score: "?", winner: null },
-      ],
-    },
-  ],
-};
+import { CreateTournamentForm } from "./components/CreateTournamentForm";
+import { TournamentDetails } from "./components/TournamentDetails";
+import { TournamentCard } from "./components/TournamentCard";
+import { tournamentService } from "./tournamentService";
+import { ITournament } from "./types";
 
 export function TournamentPage() {
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [formData, setFormData] = useState<TournamentForm>({
-    name: "",
-    description: "",
-    startDate: "",
-    maxParticipants: "16",
-    timeControl: "5+3",
-    entryFee: "0",
+  const navigate = useNavigate();
+  const { publicKey } = useWallet();
+  const { uniqueHash } = useParams<{ uniqueHash?: string }>();
+  const [tournaments, setTournaments] = useState<{
+    active: ITournament[];
+    upcoming: ITournament[];
+    completed: ITournament[];
+  }>({
+    active: [],
+    upcoming: [],
+    completed: [],
   });
-  const [tab, setTab] = useState<"list" | "bracket">("list");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("browse");
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+  useEffect(() => {
+    if (uniqueHash) {
+      return; // Skip fetching tournaments list when viewing a specific tournament
+    }
+
+    const fetchAllTournaments = async () => {
+      try {
+        setLoading(true);
+        const response = await tournamentService.listTournaments();
+
+        if (response.status && response.tournaments) {
+          const active: ITournament[] = [];
+          const upcoming: ITournament[] = [];
+          const completed: ITournament[] = [];
+
+          response.tournaments.forEach((tournament) => {
+            switch (tournament.status) {
+              case "active":
+                active.push(tournament);
+                break;
+              case "upcoming":
+                upcoming.push(tournament);
+                break;
+              case "completed":
+                completed.push(tournament);
+                break;
+            }
+          });
+
+          setTournaments({ active, upcoming, completed });
+        } else {
+          setError("Failed to load tournaments");
+        }
+      } catch (error) {
+        setError(
+          error instanceof Error ? error.message : "An unknown error occurred"
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAllTournaments();
+  }, [uniqueHash]);
+
+  const handleCreateSuccess = (newTournamentHash: string) => {
+    navigate(`/tournaments/${newTournamentHash}`);
   };
-  const handleSelectChange = (name: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [name]: value }));
+
+  const refreshTournaments = async () => {
+    try {
+      setLoading(true);
+      const response = await tournamentService.listTournaments();
+
+      if (response.status && response.tournaments) {
+        const active: ITournament[] = [];
+        const upcoming: ITournament[] = [];
+        const completed: ITournament[] = [];
+
+        response.tournaments.forEach((tournament) => {
+          switch (tournament.status) {
+            case "active":
+              active.push(tournament);
+              break;
+            case "upcoming":
+              upcoming.push(tournament);
+              break;
+            case "completed":
+              completed.push(tournament);
+              break;
+          }
+        });
+
+        setTournaments({ active, upcoming, completed });
+      }
+    } catch {
+      // Silent fail on refresh
+    } finally {
+      setLoading(false);
+    }
   };
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // TODO: Implement tournament creation logic
-    setIsCreateDialogOpen(false);
-  };
-  const formatDate = (date: Date): string =>
-    date.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
+
+  if (uniqueHash) {
+    return <TournamentDetails uniqueHash={uniqueHash} />;
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-950 to-black text-white relative">
-      {/* Glassy hero section */}
-      <div className="relative z-10 container mx-auto px-4 pt-10 pb-6 flex flex-col items-center">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl px-8 py-8 flex flex-col items-center w-full max-w-2xl border border-amber-400/20"
-        >
-          <Trophy className="w-14 h-14 text-amber-400 mb-2 drop-shadow-lg" />
-          <h1 className="text-4xl font-extrabold mb-2 tracking-tight text-center bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
-            Chess Tournaments
-          </h1>
-          <p className="text-lg text-gray-200 mb-4 text-center max-w-xl">
-            Compete, climb the bracket, and win prizes. Create or join a
-            tournament now!
-          </p>
-          <Button
-            className="bg-gradient-to-r from-amber-500 to-orange-600 text-lg font-semibold px-6 py-2 rounded-full shadow-lg flex items-center gap-2"
-            onClick={() => setIsCreateDialogOpen(true)}
-          >
-            <PlusCircle className="w-5 h-5" /> Create Tournament
-          </Button>
-        </motion.div>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-purple-950 to-black text-gray-200 p-6">
+      {/* Background glow effects */}
+      <div className="fixed top-0 right-0 w-96 h-96 bg-amber-600/5 rounded-full filter blur-3xl pointer-events-none"></div>
+      <div className="fixed bottom-0 left-0 w-96 h-96 bg-purple-800/5 rounded-full filter blur-3xl pointer-events-none"></div>
 
-      {/* Tab Switcher */}
-      <div className="relative z-10 container mx-auto px-4 flex justify-center mt-6 mb-2">
-        <div className="flex bg-white/10 backdrop-blur rounded-full shadow border border-amber-400/20 overflow-hidden">
-          <button
-            className={`px-6 py-2 font-semibold transition-all ${
-              tab === "list"
-                ? "bg-amber-500/80 text-black shadow"
-                : "text-white hover:bg-amber-400/20"
-            }`}
-            onClick={() => setTab("list")}
+      {/* Header with animated underline */}
+      <div className="max-w-6xl mx-auto mb-12">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+          {/* Back to home button */}
+          <Button
+            variant="ghost"
+            onClick={() => navigate("/")}
+            className="text-gray-400 hover:text-black rounded-full px-4 cursor-pointer"
           >
-            Tournaments
-          </button>
-          <button
-            className={`px-6 py-2 font-semibold transition-all ${
-              tab === "bracket"
-                ? "bg-amber-500/80 text-black shadow"
-                : "text-white hover:bg-amber-400/20"
-            }`}
-            onClick={() => setTab("bracket")}
-          >
-            Bracket
-          </button>
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back
+          </Button>
+
+          <h1 className="text-3xl md:text-4xl font-bold text-center relative group">
+            <span className="bg-gradient-to-r from-amber-400 via-orange-500 to-yellow-500 text-transparent bg-clip-text">
+              Tournaments
+            </span>
+            <span className="block h-0.5 max-w-0 group-hover:max-w-full transition-all duration-500 bg-gradient-to-r from-amber-400 via-orange-500 to-yellow-500"></span>
+          </h1>
+
+          {/* Action Buttons */}
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              onClick={refreshTournaments}
+              disabled={loading}
+              className="text-amber-400 border-amber-700/30 bg-black/30 hover:bg-amber-900/30 hover:text-amber-300 hover:border-amber-600 transition-all duration-300 rounded-full shadow-sm shadow-amber-900/10"
+            >
+              <RefreshCw
+                className={`mr-1 h-4 w-4 ${loading ? "animate-spin" : ""}`}
+              />
+              Refresh
+            </Button>
+            {publicKey && (
+              <Button
+                onClick={() => setActiveTab("create")}
+                className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 rounded-full shadow-lg shadow-amber-900/20 font-medium transition-all duration-300 transform hover:scale-105"
+              >
+                <Plus className="mr-1 h-4 w-4" /> Create Tournament
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="relative z-10 container mx-auto px-4 pb-16">
-        {/* Tournament List */}
-        {tab === "list" && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 mt-6"
-          >
-            {mockTournaments.map((tournament) => (
-              <Card
-                key={tournament.id}
-                className="bg-white/10 backdrop-blur-lg border border-amber-400/20 rounded-2xl shadow-xl hover:scale-[1.025] transition-transform"
-              >
-                <CardHeader className="flex flex-row items-center gap-3 pb-2">
-                  <Trophy className="w-7 h-7 text-amber-400 drop-shadow" />
-                  <div className="flex-1">
-                    <CardTitle className="text-lg font-bold text-white flex items-center gap-2">
-                      {tournament.name}
-                      <span
-                        className={`ml-2 px-2 py-0.5 rounded-full text-xs font-semibold ${
-                          tournament.status === "ongoing"
-                            ? "bg-green-500/80 text-white"
-                            : tournament.status === "upcoming"
-                            ? "bg-blue-500/80 text-white"
-                            : "bg-gray-500/80 text-white"
-                        }`}
-                      >
-                        {tournament.status}
-                      </span>
-                    </CardTitle>
-                    <CardDescription className="text-gray-200 text-sm mt-1">
-                      {tournament.description}
-                    </CardDescription>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="flex flex-col gap-2 mt-2">
-                    <div className="flex items-center gap-2 text-sm text-gray-300">
-                      <Calendar className="w-4 h-4" />{" "}
-                      {formatDate(tournament.startDate)}
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-300">
-                      <Users className="w-4 h-4" /> {tournament.participants}/
-                      {tournament.maxParticipants} players
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-300">
-                      <Clock className="w-4 h-4" /> {tournament.timeControl}
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-amber-400 font-semibold mt-2">
-                      <Trophy className="w-4 h-4" /> Prize: {tournament.prize}
-                    </div>
-                  </div>
-                  <div className="flex justify-end mt-6">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="rounded-full px-4 py-1.5 font-semibold flex items-center gap-1"
-                    >
-                      Join <ChevronRight className="w-4 h-4 ml-1" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </motion.div>
-        )}
-
-        {/* Bracket Tree */}
-        {tab === "bracket" && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="overflow-y-auto mt-8 pb-8 flex flex-col items-center w-full"
-          >
-            <div className="flex flex-col gap-16 min-h-[700px] w-full max-w-5xl mx-auto">
-              {/* Render rounds from top (final) to bottom (earliest) */}
-              {mockBracket.rounds
-                .slice()
-                .reverse()
-                .map((round, roundIdx, arr) => (
-                  <div
-                    key={round.name}
-                    className="flex flex-col items-center w-full"
-                  >
-                    {/* Round label on top, centered */}
-                    <h3 className="text-amber-400 font-bold text-lg mb-4 drop-shadow text-center w-full">
-                      {round.name}
-                    </h3>
-                    <div
-                      className={`flex flex-row gap-8 sm:gap-12 w-full justify-center relative`}
-                    >
-                      {round.matches.map((match, matchIdx) => (
-                        <div
-                          key={matchIdx}
-                          className="relative flex flex-col items-center bg-white/10 backdrop-blur rounded-xl shadow-lg px-4 sm:px-6 py-4 min-w-[140px] sm:min-w-[180px] border border-amber-400/10 mx-auto"
-                          style={{ flex: 1, maxWidth: 220 }}
-                        >
-                          {/* Trophy for winner */}
-                          {match.winner && (
-                            <Trophy className="absolute -top-7 left-1/2 -translate-x-1/2 w-7 h-7 text-amber-400 drop-shadow" />
-                          )}
-                          <div className="flex items-center gap-2 mb-2">
-                            <Avatar className="w-7 h-7">
-                              <AvatarFallback>
-                                {match.player1[0]}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span className="font-semibold text-white text-xs sm:text-base">
-                              {match.player1}
-                            </span>
-                            <span className="text-amber-400 font-bold text-base sm:text-lg">
-                              {match.score.split("-")[0]}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Avatar className="w-7 h-7">
-                              <AvatarFallback>
-                                {match.player2[0]}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span className="font-semibold text-white text-xs sm:text-base">
-                              {match.player2}
-                            </span>
-                            <span className="text-amber-400 font-bold text-base sm:text-lg">
-                              {match.score.split("-")[1]}
-                            </span>
-                          </div>
-                          {/* Connector line to previous round */}
-                          {roundIdx < arr.length - 1 && (
-                            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-8 bg-amber-400/30 rounded-full z-0" />
-                          )}
-                          {/* Connector lines to next round (fan out) */}
-                          {roundIdx > 0 && (
-                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1 h-8 bg-amber-400/30 rounded-full z-0" />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+      {/* Description Panel */}
+      <div className="max-w-6xl mx-auto mb-8">
+        <div className="bg-gradient-to-r from-black/40 to-purple-900/10 backdrop-blur-sm rounded-xl border border-gray-800/40 p-6 shadow-lg">
+          <div className="flex flex-col md:flex-row gap-4 items-center md:items-start">
+            <div className="bg-gradient-to-br from-amber-600/20 to-purple-600/20 p-3 rounded-lg">
+              <Trophy className="h-10 w-10 text-amber-400/80" />
             </div>
-          </motion.div>
-        )}
-      </div>
-
-      {/* Create Tournament Modal */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="sm:max-w-[425px] bg-white/10 backdrop-blur-lg border border-amber-400/20 text-white rounded-2xl shadow-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-amber-400 flex items-center gap-2">
-              <PlusCircle className="w-6 h-6" /> Create Tournament
-            </DialogTitle>
-            <DialogDescription className="text-gray-200">
-              Set up a new chess tournament. Fill in the details below.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4 mt-2">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Tournament Name</label>
-              <Input
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                placeholder="Grand Chess Championship"
-                required
-                minLength={3}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Description</label>
-              <Input
-                name="description"
-                value={formData.description}
-                onChange={handleInputChange}
-                placeholder="Tournament description..."
-                required
-                minLength={10}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Start Date</label>
-              <Input
-                type="datetime-local"
-                name="startDate"
-                value={formData.startDate}
-                onChange={handleInputChange}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">
-                Maximum Participants
-              </label>
-              <Select
-                value={formData.maxParticipants}
-                onValueChange={(value) =>
-                  handleSelectChange("maxParticipants", value)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select max participants" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="8">8 Players</SelectItem>
-                  <SelectItem value="16">16 Players</SelectItem>
-                  <SelectItem value="32">32 Players</SelectItem>
-                  <SelectItem value="64">64 Players</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Time Control</label>
-              <Select
-                value={formData.timeControl}
-                onValueChange={(value) =>
-                  handleSelectChange("timeControl", value)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select time control" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1+0">1+0 (Bullet)</SelectItem>
-                  <SelectItem value="3+2">3+2 (Blitz)</SelectItem>
-                  <SelectItem value="5+3">5+3 (Blitz)</SelectItem>
-                  <SelectItem value="10+5">10+5 (Rapid)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Entry Fee (SOL)</label>
-              <Input
-                type="number"
-                step="0.1"
-                min="0"
-                name="entryFee"
-                value={formData.entryFee}
-                onChange={handleInputChange}
-              />
-              <p className="text-xs text-gray-400">
-                Set to 0 for free tournaments
+            <div className="flex-1">
+              <h2 className="text-xl font-semibold text-amber-300 mb-2">
+                Compete in Chess Tournaments
+              </h2>
+              <p className="text-gray-300 mb-4 max-w-3xl">
+                Join tournaments with players from around the world. Compete for
+                prizes, improve your skills, and climb the rankings. Tournaments
+                are available in various formats including Swiss, Round Robin,
+                and Knockout stages.
               </p>
+              <div className="flex flex-wrap gap-6 text-sm">
+                <div className="flex items-center">
+                  <div className="w-8 h-8 rounded-full bg-black/30 border border-amber-700/30 flex items-center justify-center mr-2">
+                    <Trophy className="h-4 w-4 text-amber-400" />
+                  </div>
+                  <span className="text-gray-300">
+                    Win prizes and recognition
+                  </span>
+                </div>
+                <div className="flex items-center">
+                  <div className="w-8 h-8 rounded-full bg-black/30 border border-amber-700/30 flex items-center justify-center mr-2">
+                    <Calendar className="h-4 w-4 text-amber-400" />
+                  </div>
+                  <span className="text-gray-300">
+                    Regular scheduled events
+                  </span>
+                </div>
+                <div className="flex items-center">
+                  <div className="w-8 h-8 rounded-full bg-black/30 border border-amber-700/30 flex items-center justify-center mr-2">
+                    <Users className="h-4 w-4 text-amber-400" />
+                  </div>
+                  <span className="text-gray-300">
+                    Play with diverse opponents
+                  </span>
+                </div>
+              </div>
             </div>
-            <Button
-              type="submit"
-              className="w-full bg-gradient-to-r from-amber-500 to-orange-600 font-semibold text-lg rounded-full mt-4"
-            >
-              Create Tournament
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Background effects */}
-      <div className="fixed inset-0 z-0 pointer-events-none">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-amber-600/10 rounded-full filter blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-800/10 rounded-full filter blur-3xl" />
+          </div>
+        </div>
       </div>
+
+      {/* Enhanced Tabs */}
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="w-full max-w-6xl mx-auto"
+      >
+        <TabsList className="w-full max-w-md mx-auto grid grid-cols-2 mb-8 bg-black/30 border border-gray-800/50 p-1 rounded-full">
+          <TabsTrigger
+            value="browse"
+            className="rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500/80 data-[state=active]:to-orange-600/80 text-white"
+          >
+            Browse Tournaments
+          </TabsTrigger>
+          <TabsTrigger
+            value="create"
+            disabled={!publicKey}
+            className="rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500/80 data-[state=active]:to-orange-600/80 text-white"
+          >
+            Create Tournament
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="browse" className="space-y-8">
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-red-900/20 border border-red-800/40 rounded-xl p-6 my-4 backdrop-blur-sm"
+            >
+              <h3 className="text-lg font-semibold text-red-400 mb-2">Error</h3>
+              <p className="text-gray-300 mb-4">{error}</p>
+              <Button
+                onClick={refreshTournaments}
+                variant="outline"
+                className="border-red-700/30 text-red-400 hover:text-red-300 hover:bg-red-900/20"
+              >
+                <RefreshCw className="mr-1 h-4 w-4" /> Retry
+              </Button>
+            </motion.div>
+          )}
+
+          {loading &&
+          tournaments.active.length === 0 &&
+          tournaments.upcoming.length === 0 &&
+          tournaments.completed.length === 0 ? (
+            <div className="flex justify-center items-center min-h-[300px]">
+              <div className="flex flex-col items-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-amber-500 mb-4"></div>
+                <p className="text-gray-400">Loading tournaments...</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              {tournaments.active.length > 0 && (
+                <motion.section
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4 }}
+                >
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="flex items-center gap-2">
+                      <Trophy className="h-5 w-5 text-amber-400" />
+                      <h2 className="text-2xl font-bold bg-gradient-to-r from-amber-400 to-amber-300 bg-clip-text text-transparent">
+                        Active Tournaments
+                      </h2>
+                    </div>
+                    <div className="bg-green-500 w-3 h-3 rounded-full animate-pulse"></div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {tournaments.active.map((tournament, index) => (
+                      <motion.div
+                        key={tournament.unique_hash}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: index * 0.1 }}
+                      >
+                        <TournamentCard
+                          tournament={tournament}
+                          onJoinSuccess={refreshTournaments}
+                        />
+                      </motion.div>
+                    ))}
+                  </div>
+                </motion.section>
+              )}
+
+              {tournaments.upcoming.length > 0 && (
+                <motion.section
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.2 }}
+                >
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-5 w-5 text-blue-400" />
+                      <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-blue-300 bg-clip-text text-transparent">
+                        Upcoming Tournaments
+                      </h2>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {tournaments.upcoming.map((tournament, index) => (
+                      <motion.div
+                        key={tournament.unique_hash}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: index * 0.1 }}
+                      >
+                        <TournamentCard
+                          tournament={tournament}
+                          onJoinSuccess={refreshTournaments}
+                        />
+                      </motion.div>
+                    ))}
+                  </div>
+                </motion.section>
+              )}
+
+              {tournaments.completed.length > 0 && (
+                <motion.section
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.4 }}
+                >
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="flex items-center gap-2">
+                      <Trophy className="h-5 w-5 text-gray-400" />
+                      <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-300 to-gray-400 bg-clip-text text-transparent">
+                        Completed Tournaments
+                      </h2>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {tournaments.completed.map((tournament, index) => (
+                      <motion.div
+                        key={tournament.unique_hash}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: index * 0.1 }}
+                      >
+                        <TournamentCard
+                          tournament={tournament}
+                          onJoinSuccess={refreshTournaments}
+                        />
+                      </motion.div>
+                    ))}
+                  </div>
+                </motion.section>
+              )}
+
+              {tournaments.active.length === 0 &&
+                tournaments.upcoming.length === 0 &&
+                tournaments.completed.length === 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="text-center py-16 bg-gradient-to-r from-black/40 to-purple-900/10 rounded-xl border border-gray-800/40 backdrop-blur-sm shadow-xl"
+                  >
+                    <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-gradient-to-br from-purple-700/20 to-black/30 flex items-center justify-center border border-purple-800/50">
+                      <Trophy className="h-8 w-8 text-purple-400/70" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-200 mb-2">
+                      No tournaments available
+                    </h3>
+                    <p className="text-gray-400 mb-6 max-w-md mx-auto">
+                      There are currently no tournaments scheduled. Why not
+                      create one and invite players to join?
+                    </p>
+                    {publicKey ? (
+                      <Button
+                        onClick={() => setActiveTab("create")}
+                        className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 rounded-full px-6 py-2 shadow-lg shadow-amber-900/20"
+                      >
+                        <Plus className="mr-2 h-4 w-4" /> Create Tournament
+                      </Button>
+                    ) : (
+                      <p className="text-sm text-gray-500 border border-gray-800/40 rounded-lg px-4 py-2 bg-black/20 inline-block">
+                        Connect your wallet to create a tournament
+                      </p>
+                    )}
+                  </motion.div>
+                )}
+            </>
+          )}
+        </TabsContent>
+
+        <TabsContent value="create">
+          {!publicKey ? (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-center py-16 bg-gradient-to-r from-black/40 to-purple-900/10 rounded-xl border border-gray-800/40 backdrop-blur-sm shadow-xl"
+            >
+              <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-gradient-to-br from-amber-700/20 to-black/30 flex items-center justify-center border border-amber-800/50">
+                <Trophy className="h-8 w-8 text-amber-400/70" />
+              </div>
+              <h3 className="text-xl font-semibold text-amber-300 mb-2">
+                Connect your wallet
+              </h3>
+              <p className="text-gray-400 max-w-md mx-auto">
+                You need to connect your Solana wallet to create and manage
+                tournaments. This allows us to verify your identity and secure
+                your tournament entries.
+              </p>
+            </motion.div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+            >
+              <CreateTournamentForm onSuccess={handleCreateSuccess} />
+            </motion.div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
-
-export default TournamentPage;

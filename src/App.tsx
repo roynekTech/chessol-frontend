@@ -17,7 +17,7 @@ import { useMemo } from "react";
 import { Lobby } from "./pages/Lobby";
 import { WebSocketProvider } from "./context/WebSocketContext";
 import HumanVsHumanV2 from "./pages/game-play/HumanVsHumanV2";
-import { TournamentPage } from "./pages/tournament/TournamentPage";
+import { TournamentRouter } from "./pages/tournament/TournamentRouter";
 import { Layout } from "./components/Layout";
 import { NotFound } from "./pages/NotFound";
 import { PAGE_ROUTES } from "./utils/constants";
@@ -61,8 +61,8 @@ function App() {
                       element={<HumanVsHumanV2 />}
                     />
                     <Route
-                      path={PAGE_ROUTES.TournamentPage}
-                      element={<TournamentPage />}
+                      path={`${PAGE_ROUTES.TournamentPage}/*`}
+                      element={<TournamentRouter />}
                     />
                     <Route path={PAGE_ROUTES.NotFound} element={<NotFound />} />
                   </Routes>

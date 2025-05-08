@@ -26,20 +26,17 @@
   - [ ] Add tooltips for controls
   - [ ] Enhance mobile responsiveness
 
-
-
 The data below may help you in creating the meta details:
 
 1. Page Title & Meta Description (For Google/SEO)
-Title:
-ChessSol | Play, Bet & Earn Crypto on Solana’s Fastest Chess Platform
+   Title:
+   ChessSol | Play, Bet & Earn Crypto on Solana’s Fastest Chess Platform
 
 Meta Description:
 ChessSol merges competitive chess with Web3. Play P2E matches, bet with friends, and host tournaments on Solana—low fees, real rewards. Join now!
 
 Keywords:
 play-to-earn chess, Solana chess game, crypto betting, Web3 chess, earn crypto playing chess, blockchain tournaments, ChessSol, SPL token chess
-
 
 <!-- Primary Meta Tags -->
 <meta property="og:title" content="ChessSol | Bet & Earn Crypto on Solana Chess">
@@ -54,11 +51,6 @@ play-to-earn chess, Solana chess game, crypto betting, Web3 chess, earn crypto p
 <meta name="twitter:description" content="The first play-to-earn chess platform on Solana. Compete, bet, and host tournaments with $CHESS tokens.">
 <meta name="twitter:image" content="https://chesssol.com/twitter-card.png">
 
-
-
-
-
-
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -70,3 +62,12 @@ play-to-earn chess, Solana chess game, crypto betting, Web3 chess, earn crypto p
   "gamePlatform": "Solana Blockchain"
 }
 </script>
+
+// timing value
+
+1. bullet - 1 min
+2. blitz - 3 min
+3. blitz - 5 min
+4. rapid - 10 min
+5. fast - 15 min
+6. classical - 30 min

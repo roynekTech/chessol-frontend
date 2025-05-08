@@ -1,0 +1,252 @@
+import { FC, useState } from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { motion } from "framer-motion";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ITournament } from "../types";
+import { tournamentService } from "../tournamentService";
+import {
+  Trophy,
+  User,
+  Mail,
+  Phone,
+  DollarSign,
+  AlertCircle,
+  Loader2,
+} from "lucide-react";
+
+interface JoinTournamentModalProps {
+  tournament: ITournament;
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+export const JoinTournamentModal: FC<JoinTournamentModalProps> = ({
+  tournament,
+  isOpen,
+  onClose,
+  onSuccess,
+}) => {
+  const { publicKey } = useWallet();
+  const [nickname, setNickname] = useState("");
+  const [email, setEmail] = useState("");
+  const [contact, setContact] = useState("");
+  const [transactionSignature, setTransactionSignature] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!publicKey) return;
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const joinData = {
+        unique_hash: tournament.unique_hash,
+        walletAddress: publicKey.toString(),
+        nickname: nickname || undefined,
+        email: email || undefined,
+        contact: contact || undefined,
+        // For betting tournaments
+        transactionSignature:
+          tournament.isBet === 1 ? transactionSignature : undefined,
+        paymentAmount:
+          tournament.isBet === 1 ? tournament.paymentAmount : undefined,
+      };
+
+      const response = await tournamentService.joinTournament(joinData);
+
+      if (response.status === "success") {
+        onSuccess();
+      } else {
+        setError(response.msg || "Failed to join tournament");
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "An unknown error occurred"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-md border-gray-800/70 bg-gray-950 shadow-xl  overflow-hidden rounded-xl z-[100] fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%]">
+        {/* Subtle shine effect */}
+        <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 via-purple-500/10 to-transparent pointer-events-none"></div>
+
+        <DialogHeader className="relative border-b border-gray-800/50 pb-4">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-amber-600/5 rounded-full filter blur-2xl pointer-events-none"></div>
+          <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-800/5 rounded-full filter blur-2xl pointer-events-none"></div>
+
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-amber-700/30 to-black/30 flex items-center justify-center border border-amber-800/50">
+                <Trophy className="h-4 w-4 text-amber-400" />
+              </div>
+              <DialogTitle className="text-xl">
+                <span className="bg-gradient-to-r from-amber-400 via-orange-500 to-yellow-500 text-transparent bg-clip-text">
+                  Join Tournament
+                </span>
+              </DialogTitle>
+            </div>
+            <DialogDescription className="text-gray-400">
+              Enter your details to join "{tournament.name}"
+            </DialogDescription>
+          </motion.div>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4 py-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.1 }}
+            className="space-y-4"
+          >
+            <div className="space-y-2">
+              <Label
+                htmlFor="nickname"
+                className="text-gray-300 flex items-center gap-1.5"
+              >
+                <User className="h-3.5 w-3.5 text-purple-400" />
+                Nickname (Optional)
+              </Label>
+              <Input
+                id="nickname"
+                type="text"
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+                placeholder="How you'll appear to others"
+                className="bg-gray-900 border-gray-700 focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 text-gray-100"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label
+                htmlFor="email"
+                className="text-gray-300 flex items-center gap-1.5"
+              >
+                <Mail className="h-3.5 w-3.5 text-blue-400" />
+                Email (Optional)
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="For tournament notifications"
+                className="bg-gray-900 border-gray-700 focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 text-gray-100"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label
+                htmlFor="contact"
+                className="text-gray-300 flex items-center gap-1.5"
+              >
+                <Phone className="h-3.5 w-3.5 text-green-400" />
+                Contact (Optional)
+              </Label>
+              <Input
+                id="contact"
+                type="text"
+                value={contact}
+                onChange={(e) => setContact(e.target.value)}
+                placeholder="Phone number or other contact info"
+                className="bg-gray-900 border-gray-700 focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 text-gray-100"
+              />
+            </div>
+
+            {tournament.isBet === 1 && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="space-y-2 p-3 bg-gray-900 border-l-2 border-amber-500/50 rounded-lg"
+              >
+                <Label
+                  htmlFor="transaction"
+                  className="text-amber-400 flex items-center gap-1.5"
+                >
+                  <DollarSign className="h-3.5 w-3.5" />
+                  Transaction Signature (Required)
+                </Label>
+                <Input
+                  id="transaction"
+                  type="text"
+                  value={transactionSignature}
+                  onChange={(e) => setTransactionSignature(e.target.value)}
+                  placeholder="Paste your transaction signature here"
+                  required={tournament.isBet === 1}
+                  className="bg-gray-900 border-amber-500/50 focus:border-amber-500 focus:ring-1 focus:ring-amber-500/70 text-amber-100"
+                />
+                <p className="text-xs text-amber-500/70 flex items-center gap-1.5">
+                  <DollarSign className="h-3 w-3" />
+                  Entry fee: {tournament.paymentAmount} SOL. Please complete the
+                  payment before submitting.
+                </p>
+              </motion.div>
+            )}
+
+            {error && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex items-start gap-3 text-red-400 text-sm p-3 bg-red-950/20 rounded-lg border border-red-700/30"
+              >
+                <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </motion.div>
+            )}
+          </motion.div>
+
+          <DialogFooter className="mt-6 pt-4 border-t border-gray-800/50">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={loading}
+              className="border-gray-700 bg-black/40 hover:bg-gray-900/60 hover:text-gray-100 transition-all duration-200 text-white"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={loading || !publicKey}
+              className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 transition-all duration-300 shadow-lg shadow-amber-900/20 font-medium transform hover:scale-105"
+            >
+              {loading ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Joining...</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Trophy className="h-4 w-4" />
+                  <span>Join Tournament</span>
+                </div>
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+};

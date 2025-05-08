@@ -68,4 +68,18 @@ export const helperUtil = {
 
     return false;
   },
+
+  // Format date from ISO string to human-readable format
+  formatDate: (isoString: string): string => {
+    try {
+      const date = new Date(isoString);
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    } catch {
+      return isoString;
+    }
+  },
 };
