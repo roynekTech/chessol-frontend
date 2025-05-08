@@ -61,26 +61,7 @@ export function useWebSocket(
     // Track if this is a reconnect (open after close)
     let wasClosed = false;
 
-    // --- Keepalive Ping Interval ---
-    // Effect: Sends a {type: "ping"} message every 25 seconds to keep the connection alive
-    // Input: None
-    // Output: Keeps WebSocket from being closed by server for idleness
-    let pingInterval: NodeJS.Timeout | null = null;
-    const startPing = () => {
-      if (pingInterval) clearInterval(pingInterval);
-      pingInterval = setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: "ping" }));
-        }
-      }, 30000); // 30 seconds
-    };
-    const stopPing = () => {
-      if (pingInterval) clearInterval(pingInterval);
-      pingInterval = null;
-    };
-
     ws.addEventListener("open", (event: RwsEvent) => {
-      startPing();
       // If this is a reconnect (not the first open), call onReconnect
       if (wasClosed && options.onReconnect) {
         options.onReconnect(ws);
@@ -89,7 +70,6 @@ export function useWebSocket(
       options.onOpen?.(event);
     });
     ws.addEventListener("close", (event: RwsCloseEvent) => {
-      stopPing();
       wasClosed = true;
       options.onClose?.(event);
     });
@@ -104,7 +84,6 @@ export function useWebSocket(
     });
 
     return () => {
-      stopPing();
       ws.close();
     };
     // Only re-run if url or protocols change
