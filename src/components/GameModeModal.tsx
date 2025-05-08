@@ -48,7 +48,7 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
   const [duration, setDuration] = useState<number>(300000); // default 5 min
   const [isBetting, setIsBetting] = useState<boolean>(false);
   const [playerAmount, setPlayerAmount] = useState<string>("");
-  const [side, setSide] = useState<"w" | "b" | "random">("w"); // Allow "random" for side
+  const [side, setSide] = useState<"w" | "b" | "random">("random"); // Allow "random" for side
   const { publicKey } = useWallet();
   const walletAddress = publicKey?.toBase58() || "";
   const [userClickedCreate, setUserClickedCreate] = useState<boolean>(false);
@@ -162,7 +162,7 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
       const message = {
         type: WebSocketMessageTypeEnum.Create,
         walletAddress,
-        side,
+        side: side === "random" ? (Math.random() < 0.5 ? "w" : "b") : side,
         duration,
         isBetting,
         transactionId: txHash,
@@ -426,9 +426,7 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
                 </h3>
                 <RadioGroup
                   defaultValue={side}
-                  onValueChange={(value) =>
-                    setSide(value as "w" | "b" | "random")
-                  }
+                  onValueChange={(value) => setSide(value as "w" | "b")}
                   className="grid grid-cols-3 gap-4"
                 >
                   <div>

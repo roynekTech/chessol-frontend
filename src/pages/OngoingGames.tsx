@@ -93,7 +93,7 @@ export function OngoingGames() {
             <span className="bg-gradient-to-r from-amber-400 via-orange-500 to-yellow-500 text-transparent bg-clip-text">
               Ongoing Games
             </span>
-            <span className="block h-0.5 max-w-0 group-hover:max-w-full transition-all duration-500 bg-gradient-to-r from-amber-400 via-orange-500 to-yellow-500"></span>
+            <span className="block h-0.5 max-w-0 group-hover:max-w-full transition-all duration-500 bg-gradient-to-r from-amber-400 via-orange-500  to-yellow-500"></span>
           </h1>
 
           {/* New Action Buttons */}

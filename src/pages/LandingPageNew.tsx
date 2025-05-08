@@ -23,7 +23,7 @@ export function NewLandingPage() {
   };
 
   return (
-    <div className="bg-[url('/bg-chess-home.png')] bg-cover min-h-screen max-h-screen bg-blend-normal bg-black/95">
+    <div className="bg-[url('/bg-chess-home.png')] bg-cover min-h-screen max-h-screen bg-blend-normal bg-black/95 overflow-y-hidden">
       {/* nav */}
       <section className="navbar py-8 px-4 flex justify-between items-center">
         <span className="font-bold text-[2rem] bg-[image:var(--theme-orange-gradient)] text-transparent bg-clip-text">
