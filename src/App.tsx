@@ -21,6 +21,7 @@ import { TournamentPage } from "./pages/tournament/TournamentPage";
 import { Layout } from "./components/Layout";
 import { NotFound } from "./pages/NotFound";
 import { PAGE_ROUTES } from "./utils/constants";
+import { NewLandingPage } from "./pages/LandingPageNew";
 
 const queryClient = new QueryClient();
 
@@ -45,9 +46,10 @@ function App() {
               <Layout>
                 <Router>
                   <Routes>
+                    <Route path={"/old"} element={<LandingPage />} />
                     <Route
                       path={PAGE_ROUTES.Homepage}
-                      element={<LandingPage />}
+                      element={<NewLandingPage />}
                     />
                     <Route
                       path={PAGE_ROUTES.OngoingGames}

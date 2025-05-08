@@ -121,7 +121,7 @@ export function HumanVsHumanV2() {
   // fetch game details from memory and check if game ended
   const { data: retrievedGameDetails, isLoading: isLoadingGameDetails } =
     useGetData<IGetGameDataMemResponse>(
-      API_PATHS.gameFromDbData(gameId!),
+      API_PATHS.getInMemGameDetails(gameId!),
       ["gameDetails", gameId!],
       {
         enabled: !!gameId,

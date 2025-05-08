@@ -45,7 +45,7 @@ export enum WebSocketMessageTypeEnum {
 export enum GameCategoryEnum {
   Human = "human",
   Pair = "pair",
-  AI = "ai",
+  AI = "AI",
 }
 
 // --- Shared Types ---
