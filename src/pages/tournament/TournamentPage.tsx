@@ -15,8 +15,8 @@ import {
 import { CreateTournamentForm } from "./components/CreateTournamentForm";
 import { TournamentDetails } from "./components/TournamentDetails";
 import { TournamentCard } from "./components/TournamentCard";
-import { tournamentService } from "./tournamentService";
 import { ITournament } from "./types";
+import { useTournaments } from "./hooks/useTournamentHooks";
 
 export function TournamentPage() {
   const navigate = useNavigate();
@@ -31,90 +31,55 @@ export function TournamentPage() {
     upcoming: [],
     completed: [],
   });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("browse");
 
+  // Use TanStack Query to fetch tournaments
+  const {
+    isLoading: loading,
+    isError,
+    error: queryError,
+    refetch,
+    data,
+  } = useTournaments();
+
+  // Process tournaments on successful fetch
   useEffect(() => {
-    if (uniqueHash) {
-      return; // Skip fetching tournaments list when viewing a specific tournament
-    }
+    if (!loading && !isError && data?.tournaments) {
+      const active: ITournament[] = [];
+      const upcoming: ITournament[] = [];
+      const completed: ITournament[] = [];
 
-    const fetchAllTournaments = async () => {
-      try {
-        setLoading(true);
-        const response = await tournamentService.listTournaments();
-
-        if (response.status && response.tournaments) {
-          const active: ITournament[] = [];
-          const upcoming: ITournament[] = [];
-          const completed: ITournament[] = [];
-
-          response.tournaments.forEach((tournament) => {
-            switch (tournament.status) {
-              case "active":
-                active.push(tournament);
-                break;
-              case "upcoming":
-                upcoming.push(tournament);
-                break;
-              case "completed":
-                completed.push(tournament);
-                break;
-            }
-          });
-
-          setTournaments({ active, upcoming, completed });
-        } else {
-          setError("Failed to load tournaments");
+      data.tournaments.forEach((tournament: ITournament) => {
+        switch (tournament.status) {
+          case "active":
+            active.push(tournament);
+            break;
+          case "upcoming":
+            upcoming.push(tournament);
+            break;
+          case "completed":
+            completed.push(tournament);
+            break;
         }
-      } catch (error) {
-        setError(
-          error instanceof Error ? error.message : "An unknown error occurred"
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
+      });
 
-    fetchAllTournaments();
-  }, [uniqueHash]);
+      setTournaments({ active, upcoming, completed });
+    }
+  }, [data, loading, isError]);
+
+  // Extract error message from query error
+  const error = isError
+    ? queryError instanceof Error
+      ? queryError.message
+      : "An unknown error occurred"
+    : null;
 
   const handleCreateSuccess = (newTournamentHash: string) => {
     navigate(`/tournaments/${newTournamentHash}`);
   };
 
-  const refreshTournaments = async () => {
-    try {
-      setLoading(true);
-      const response = await tournamentService.listTournaments();
-
-      if (response.status && response.tournaments) {
-        const active: ITournament[] = [];
-        const upcoming: ITournament[] = [];
-        const completed: ITournament[] = [];
-
-        response.tournaments.forEach((tournament) => {
-          switch (tournament.status) {
-            case "active":
-              active.push(tournament);
-              break;
-            case "upcoming":
-              upcoming.push(tournament);
-              break;
-            case "completed":
-              completed.push(tournament);
-              break;
-          }
-        });
-
-        setTournaments({ active, upcoming, completed });
-      }
-    } catch {
-      // Silent fail on refresh
-    } finally {
-      setLoading(false);
-    }
+  const refreshTournaments = () => {
+    refetch();
   };
 
   if (uniqueHash) {

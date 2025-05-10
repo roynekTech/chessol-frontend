@@ -1,4 +1,4 @@
-import { FC, useEffect, useState } from "react";
+import { FC, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { motion } from "framer-motion";
@@ -12,10 +12,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ITournament } from "../types";
-import { tournamentService } from "../tournamentService";
 import { helperUtil } from "@/utils/helper";
 import { JoinTournamentModal } from "./JoinTournamentModal";
+import { useTournamentDetails } from "../hooks/useTournamentHooks";
 import {
   ArrowLeft,
   Trophy,
@@ -37,34 +36,23 @@ export const TournamentDetails: FC<TournamentDetailsProps> = ({
 }) => {
   const navigate = useNavigate();
   const { publicKey } = useWallet();
-  const [tournament, setTournament] = useState<ITournament | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [joinModalOpen, setJoinModalOpen] = useState(false);
 
-  useEffect(() => {
-    const fetchTournamentDetails = async () => {
-      try {
-        setLoading(true);
-        const response = await tournamentService.getTournamentDetails(
-          uniqueHash
-        );
-        if (response.status && response.tournament) {
-          setTournament(response.tournament);
-        } else {
-          setError("Failed to load tournament details");
-        }
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "An unknown error occurred"
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Use our custom hook for fetching tournament details
+  const {
+    data: tournamentData,
+    isLoading: loading,
+    isError,
+    error: queryError,
+  } = useTournamentDetails(uniqueHash);
 
-    fetchTournamentDetails();
-  }, [uniqueHash]);
+  // Extract tournament data and error message
+  const tournament = tournamentData?.tournament || null;
+  const error = isError
+    ? queryError instanceof Error
+      ? queryError.message
+      : "An unknown error occurred"
+    : null;
 
   const isPlayerJoined = () => {
     if (!publicKey || !tournament?.wallets) return false;
@@ -342,7 +330,7 @@ export const TournamentDetails: FC<TournamentDetailsProps> = ({
                           <Button
                             onClick={() => setJoinModalOpen(true)}
                             variant="outline"
-                            className="mt-4 border-gray-700 text-gray-300"
+                            className="mt-4 border-gray-700 text-black hover:bg-gray-800/40 hover:text-white cursor-pointer"
                           >
                             Be the first to join
                           </Button>

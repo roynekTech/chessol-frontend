@@ -16,6 +16,27 @@ export const API_PATHS = {
   viewGameDetails: (gameId: string) => {
     return `viewGame?gameId=${gameId}`;
   },
+
+  // Tournament API paths
+  listTournaments: (status?: string) => {
+    return status ? `tournaments?status=${status}` : "tournaments";
+  },
+
+  getTournamentDetails: (uniqueHash: string) => {
+    return `tournament/${uniqueHash}`;
+  },
+
+  createTournament: () => {
+    return "create-tournament";
+  },
+
+  joinTournament: () => {
+    return "join-tournament";
+  },
+
+  updateScore: () => {
+    return "update-score";
+  },
 };
 
 export const PAGE_ROUTES = {

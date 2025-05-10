@@ -15,7 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ICreateTournamentRequest } from "../types";
-import { tournamentService } from "../tournamentService";
+import { useCreateTournament } from "../hooks/useTournamentHooks";
 import { Textarea } from "../../../components/ui/textarea";
 import {
   Trophy,
@@ -39,9 +39,12 @@ export const CreateTournamentForm: FC<CreateTournamentFormProps> = ({
   onSuccess,
 }) => {
   const { publicKey } = useWallet();
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Use create tournament mutation
+  const { mutate: createTournament, isPending: loading } =
+    useCreateTournament();
 
   // Form states
   const [name, setName] = useState("");
@@ -61,7 +64,6 @@ export const CreateTournamentForm: FC<CreateTournamentFormProps> = ({
     if (!publicKey) return;
 
     try {
-      setLoading(true);
       setError(null);
       setSuccessMessage(null);
 
@@ -86,22 +88,27 @@ export const CreateTournamentForm: FC<CreateTournamentFormProps> = ({
         tournamentData.paymentAmount = parseFloat(paymentAmount);
       }
 
-      const response = await tournamentService.createTournament(tournamentData);
-
-      if (response.status === "success" && response.insertHash) {
-        setSuccessMessage(
-          `Tournament created successfully! Share this code with players: ${response.insertHash}`
-        );
-        onSuccess(response.insertHash);
-      } else {
-        setError(response.msg || "Failed to create tournament");
-      }
+      createTournament(tournamentData, {
+        onSuccess: (response) => {
+          if (response.status === "success" && response.insertHash) {
+            setSuccessMessage(
+              `Tournament created successfully! Share this code with players: ${response.insertHash}`
+            );
+            onSuccess(response.insertHash);
+          } else {
+            setError(response.msg || "Failed to create tournament");
+          }
+        },
+        onError: (err) => {
+          setError(
+            err instanceof Error ? err.message : "An unknown error occurred"
+          );
+        },
+      });
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "An unknown error occurred"
       );
-    } finally {
-      setLoading(false);
     }
   };
 

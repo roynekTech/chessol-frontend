@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ITournament } from "../types";
-import { tournamentService } from "../tournamentService";
+import { useJoinTournament } from "../hooks/useTournamentHooks";
 import {
   Trophy,
   User,
@@ -42,15 +42,16 @@ export const JoinTournamentModal: FC<JoinTournamentModalProps> = ({
   const [email, setEmail] = useState("");
   const [contact, setContact] = useState("");
   const [transactionSignature, setTransactionSignature] = useState("");
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Use join tournament mutation
+  const { mutate: joinTournament, isPending: loading } = useJoinTournament();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!publicKey) return;
 
     try {
-      setLoading(true);
       setError(null);
 
       const joinData = {
@@ -66,19 +67,24 @@ export const JoinTournamentModal: FC<JoinTournamentModalProps> = ({
           tournament.isBet === 1 ? tournament.paymentAmount : undefined,
       };
 
-      const response = await tournamentService.joinTournament(joinData);
-
-      if (response.status === "success") {
-        onSuccess();
-      } else {
-        setError(response.msg || "Failed to join tournament");
-      }
+      joinTournament(joinData, {
+        onSuccess: (response) => {
+          if (response.status === "success") {
+            onSuccess();
+          } else {
+            setError(response.msg || "Failed to join tournament");
+          }
+        },
+        onError: (err) => {
+          setError(
+            err instanceof Error ? err.message : "An unknown error occurred"
+          );
+        },
+      });
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "An unknown error occurred"
       );
-    } finally {
-      setLoading(false);
     }
   };
 
