@@ -1,4 +1,4 @@
-import { FC, useState } from "react";
+import { FC, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { motion } from "framer-motion";
@@ -26,6 +26,7 @@ import {
   Clock,
   DollarSign,
 } from "lucide-react";
+import { ScoreManager } from "./ScoreManager";
 
 interface TournamentDetailsProps {
   uniqueHash: string;
@@ -37,6 +38,12 @@ export const TournamentDetails: FC<TournamentDetailsProps> = ({
   const navigate = useNavigate();
   const { publicKey } = useWallet();
   const [joinModalOpen, setJoinModalOpen] = useState(false);
+  const [isAdminView, setIsAdminView] = useState(true);
+
+  // TODO: IMPLEMENT ADMIN VIEW
+  useEffect(() => {
+    setIsAdminView(true);
+  }, []);
 
   // Use our custom hook for fetching tournament details
   const {
@@ -44,6 +51,7 @@ export const TournamentDetails: FC<TournamentDetailsProps> = ({
     isLoading: loading,
     isError,
     error: queryError,
+    refetch,
   } = useTournamentDetails(uniqueHash);
 
   // Extract tournament data and error message
@@ -69,6 +77,12 @@ export const TournamentDetails: FC<TournamentDetailsProps> = ({
         return "border-gray-700/50 bg-gray-900/30 text-gray-400";
       default:
         return "border-gray-700/50 bg-gray-900/30 text-gray-400";
+    }
+  };
+
+  const handleScoreUpdated = () => {
+    if (uniqueHash) {
+      refetch();
     }
   };
 
@@ -481,6 +495,21 @@ export const TournamentDetails: FC<TournamentDetailsProps> = ({
                 </CardFooter>
               </Card>
             </motion.div>
+
+            {/* Score Management Section */}
+            {isAdminView && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.3 }}
+                className="col-span-1 md:col-span-3 mt-6"
+              >
+                <ScoreManager
+                  tournament={tournament}
+                  onScoreUpdated={handleScoreUpdated}
+                />
+              </motion.div>
+            )}
           </div>
         </div>
       </div>

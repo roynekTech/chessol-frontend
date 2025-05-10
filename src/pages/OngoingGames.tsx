@@ -89,7 +89,7 @@ export function OngoingGames() {
           <Button
             variant="ghost"
             onClick={() => navigate("/")}
-            className="text-gray-400 hover:text-white rounded-full px-4"
+            className="text-gray-400 hover:text-black rounded-full px-4"
           >
             <ArrowLeft className="mr-2 h-4 w-4" /> Back
           </Button>
