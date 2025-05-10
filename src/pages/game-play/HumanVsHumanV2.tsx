@@ -177,49 +177,6 @@ export function HumanVsHumanV2() {
     }, 2000);
   }, [navigate]);
 
-  // --- Helper: Format Game Ended Message ---
-  function processGameEndedMessage(endedMsg: IWSGameEndedMessage): {
-    winner: Color | "draw" | null;
-    statusText: string;
-  } {
-    let statusText = "Game Over!";
-    let winner: Color | "draw" | null = null;
-
-    if (endedMsg.winnerColor === null) {
-      statusText = "Game ended. Draw!";
-      winner = "draw";
-    } else if (endedMsg.reason === "checkmate") {
-      winner = endedMsg.winnerColor;
-      statusText = `Checkmate! ${winner === "w" ? "White" : "Black"} wins`;
-    } else if (endedMsg.reason === "resignation") {
-      winner = endedMsg.winnerColor;
-      statusText = `${winner === "w" ? "White" : "Black"} wins by resignation`;
-    } else if (endedMsg.reason === "timeout") {
-      winner = endedMsg.winnerColor;
-      statusText = `${winner === "w" ? "White" : "Black"} wins on time`;
-    } else if (
-      [
-        "draw",
-        "stalemate",
-        "insufficient_material",
-        "threefold_repetition",
-      ].includes(endedMsg.reason)
-    ) {
-      statusText = `Draw by ${endedMsg.reason.replace("_", " ")}!`;
-      winner = "draw";
-    } else {
-      winner = endedMsg.winner as Color | "draw" | null;
-      statusText = `Game ended. ${endedMsg.winner} wins. Reason: ${endedMsg.reason}`;
-    }
-    return { winner, statusText };
-  }
-
-  // Helper function to check if a move is a capture
-  const isCaptureMove = (move: { captured?: string }): boolean => {
-    return Boolean(move.captured);
-  };
-
-  // --- Move Pending State ---
   // Effect: Prevents user from making another move until backend confirms
   const [isMovePending, setIsMovePending] = useState(false);
 
@@ -232,169 +189,202 @@ export function HumanVsHumanV2() {
     try {
       const messageData = JSON.parse(lastMessage.data);
 
-      switch (messageData.type) {
-        case WebSocketMessageTypeEnum.Move: {
-          // --- Clear move pending state when backend confirms move ---
-          setIsMovePending(false);
-          const moveMsg = messageData as IWSMoveBroadcast;
+      // handle move response
+      if (messageData.type === WebSocketMessageTypeEnum.Move) {
+        // Clear move pending state when backend confirms move
+        setIsMovePending(false);
 
-          if (moveMsg.fen && moveMsg.lastMove) {
-            const prevFen = game.fen();
-            // Load the new position
-            game.load(moveMsg.fen);
+        const moveMsg = messageData as IWSMoveBroadcast;
 
-            // Determine if this was a capture by checking the move history
-            const didCaptureOccur = helperUtil.didCaptureOccur(
-              prevFen,
-              moveMsg.fen
-            );
+        if (moveMsg.fen && moveMsg.lastMove) {
+          // keep track of the prev fen
+          const prevFen = game.fen();
 
-            // Play appropriate sound if it's opponent's move
-            if (game.turn() === stablePlayerColor) {
-              // It's our turn now, meaning opponent just moved
-              playSound(didCaptureOccur);
-            }
+          // Load the new position
+          game.load(moveMsg.fen);
 
-            const newCapturedPieces = calculateCapturedPieces(game.board());
+          // Determine if this was a capture by checking the move history
+          const didCaptureOccur = helperUtil.didCaptureOccur(
+            prevFen,
+            moveMsg.fen
+          );
 
-            // Ensure we have a valid lastMove with from and to properties
-            let lastMove: { from: Square; to: Square } | null = null;
-            if (typeof moveMsg.lastMove === "string") {
-              lastMove = {
-                from: moveMsg.lastMove.substring(0, 2) as Square,
-                to: moveMsg.lastMove.substring(2, 4) as Square,
-              };
-            } else {
-              lastMove = moveMsg.lastMove as { from: Square; to: Square };
-            }
+          // Play sound for moves
+          playSound(didCaptureOccur);
 
-            updateGameState({
-              fen: game.fen(),
-              playerTurn: game.turn() as Color,
-              moveHistory: game.history(),
-              lastMove: lastMove,
-              moveHighlight: lastMove, // Ensure this is set correctly
-              capturedPieces: newCapturedPieces,
-              selectedSquare: null,
-              validMoves: [],
-              gameStatus:
-                game.turn() === stablePlayerColor
-                  ? "Your turn to move"
-                  : `Waiting for ${
-                      game.turn() === "w" ? "white" : "black"
-                    } to move`,
-            });
+          const newCapturedPieces = calculateCapturedPieces(game.board());
 
-            // Clear any previous timeout and set a new one
-            if (moveHighlightTimeoutRef.current) {
-              clearTimeout(moveHighlightTimeoutRef.current);
-            }
-
-            // Longer timeout (4 seconds)
-            moveHighlightTimeoutRef.current = setTimeout(() => {
-              updateGameState({
-                moveHighlight: null,
-              });
-            }, 4000); // Increased to 4 seconds
-          }
-          break;
-        }
-
-        case WebSocketMessageTypeEnum.GameEnded: {
-          const endedMsg = messageData as IWSGameEndedMessage;
-          const { winner, statusText } = processGameEndedMessage(endedMsg);
+          // Ensure we have a valid lastMove with from and to properties
+          const lastMove = {
+            from: moveMsg.lastMove.substring(0, 2) as Square,
+            to: moveMsg.lastMove.substring(2, 4) as Square,
+          };
 
           updateGameState({
-            winner,
-            gameStatus: statusText,
-            isEnded: true,
+            fen: game.fen(),
+            playerTurn: game.turn() as Color,
+            moveHistory: game.history(),
+            lastMove: lastMove,
+            moveHighlight: lastMove, // Ensure this is set correctly
+            capturedPieces: newCapturedPieces,
+            selectedSquare: null,
+            validMoves: [],
+            gameStatus: (() => {
+              const currentTurn = game.turn();
+              if (currentTurn === stablePlayerColor) {
+                return "Your turn to move";
+              } else {
+                return `Waiting for ${helperUtil.mapTurnToName(
+                  currentTurn
+                )} to move`;
+              }
+            })(),
           });
-          break;
-        }
 
-        case WebSocketMessageTypeEnum.Joined: {
-          const joinedMsg = messageData as IWSJoinedMessage;
-
-          if (joinedMsg.gameId === gameId) {
-            if (joinedMsg.fen) {
-              game.load(joinedMsg.fen);
-              const initialCapturedPieces = calculateCapturedPieces(
-                game.board()
-              );
-
-              updateGameState({
-                fen: game.fen(),
-                playerTurn: game.turn() as Color,
-                moveHistory: game.history(),
-                duration: joinedMsg?.duration || gameState?.duration,
-                capturedPieces: initialCapturedPieces,
-                gameStatus:
-                  game.turn() === stablePlayerColor
-                    ? "Your turn to move"
-                    : `Waiting for ${
-                        game.turn() === "w" ? "white" : "black"
-                      } to move`,
-              });
-            }
+          // Clear any previous timeout and set a new one
+          if (moveHighlightTimeoutRef.current) {
+            clearTimeout(moveHighlightTimeoutRef.current);
           }
-          break;
+
+          // Clear move highlight after 4 seconds
+          moveHighlightTimeoutRef.current = setTimeout(() => {
+            updateGameState({
+              moveHighlight: null,
+            });
+          }, 4000);
+        }
+      }
+
+      // handle game ended response
+      if (messageData.type === WebSocketMessageTypeEnum.GameEnded) {
+        const endedMsg = messageData as IWSGameEndedMessage;
+
+        let winner: Color | "draw" | null = null;
+        let statusMessage = "Game Over, no winner!";
+
+        if (endedMsg.winnerColor === null) {
+          statusMessage = "Game ended in a draw";
+          winner = "draw";
+        } else if (endedMsg.reason === "checkmate") {
+          winner = endedMsg.winnerColor;
+          statusMessage = `Checkmate! ${
+            winner === "w" ? "White" : "Black"
+          } wins`;
+        } else if (endedMsg.reason === "resignation") {
+          winner = endedMsg.winnerColor;
+          statusMessage = `${winner === "w" ? "Black" : "White"} resigned, ${
+            winner === "w" ? "White" : "Black"
+          } wins`;
+        } else if (endedMsg.reason === "timeout") {
+          winner = endedMsg.winnerColor;
+          statusMessage = `${winner === "w" ? "White" : "Black"} wins on time`;
+        } else if (
+          [
+            "draw",
+            "stalemate",
+            "insufficient_material",
+            "threefold_repetition",
+          ].includes(endedMsg.reason)
+        ) {
+          statusMessage = `Draw by ${endedMsg.reason.replace("_", " ")}!`;
+          winner = "draw";
+        } else {
+          winner = endedMsg.winner as Color | "draw" | null;
+          statusMessage = `Game ended. ${endedMsg.winner} wins. Reason: ${endedMsg.reason}`;
         }
 
-        case WebSocketMessageTypeEnum.Reconnected: {
-          const reconnectedMsg = messageData as IWSReconnectedMessage;
+        updateGameState({
+          winner: endedMsg.winnerColor,
+          gameStatus: statusMessage,
+          isEnded: true,
+        });
+      }
 
-          // Load the returned game state
-          if (reconnectedMsg.fen) {
-            game.load(reconnectedMsg.fen);
-            const newCapturedPieces = calculateCapturedPieces(game.board());
+      // handle joined response
+      if (messageData.type === WebSocketMessageTypeEnum.Joined) {
+        const joinedMsg = messageData as IWSJoinedMessage;
 
-            updateGameState({
-              fen: game.fen(),
-              playerTurn: game.turn() as Color,
-              moveHistory: game.history(),
-              capturedPieces: newCapturedPieces,
-              gameStatus: game.isGameOver()
-                ? `Game ${reconnectedMsg.status}`
-                : game.turn() === stablePlayerColor
+        if (joinedMsg.gameId === gameId && joinedMsg.fen) {
+          game.load(joinedMsg.fen);
+          const initialCapturedPieces = calculateCapturedPieces(game.board());
+
+          updateGameState({
+            fen: game.fen(),
+            playerTurn: game.turn() as Color,
+            moveHistory: game.history(),
+            duration: joinedMsg?.duration || gameState?.duration,
+            capturedPieces: initialCapturedPieces,
+            gameStatus:
+              game.turn() === stablePlayerColor
                 ? "Your turn to move"
-                : `Waiting for ${
-                    game.turn() === "w" ? "white" : "black"
-                  } to move`,
-            });
-          }
-          break;
+                : `Waiting for ${helperUtil.mapTurnToName(
+                    game.turn()
+                  )} to move`,
+          });
         }
+      }
 
-        case WebSocketMessageTypeEnum.ViewingGame: {
-          const viewingMsg = messageData as IWSViewingGameMessage;
-          if (viewingMsg.fen) {
-            game.load(viewingMsg.fen);
-            updateGameState({
-              fen: game.fen(),
-              playerTurn: game.turn() as Color,
-            });
-          }
-          break;
+      // handle viewing game response
+      if (messageData.type === WebSocketMessageTypeEnum.ViewingGame) {
+        const viewingMsg = messageData as IWSViewingGameMessage;
+        if (viewingMsg.fen) {
+          game.load(viewingMsg.fen);
+          updateGameState({
+            fen: game.fen(),
+            playerTurn: game.turn() as Color,
+          });
         }
+      }
 
-        case WebSocketMessageTypeEnum.Error: {
-          const errorMsg = messageData as IWSErrorMessage;
-          // check if game ended
-          if (errorMsg.message.includes("Game no longer exists")) {
-            console.log("game ended");
-          }
-          toast.error(`Game Error: ${errorMsg.message}`);
-          break;
+      // handle reconnect
+      if (messageData.type === WebSocketMessageTypeEnum.Reconnected) {
+        const reconnectedMsg = messageData as IWSReconnectedMessage;
+
+        // Load the returned game state
+        if (reconnectedMsg.fen) {
+          game.load(reconnectedMsg.fen);
+          const newCapturedPieces = calculateCapturedPieces(game.board());
+
+          updateGameState({
+            fen: game.fen(),
+            playerTurn: game.turn() as Color,
+            moveHistory: game.history(),
+            capturedPieces: newCapturedPieces,
+            gameStatus: (() => {
+              const isGameOver = game.isGameOver();
+              const currentTurn = game.turn();
+
+              if (isGameOver) {
+                return `Game ${reconnectedMsg.status}`;
+              } else if (currentTurn === stablePlayerColor) {
+                return "Your turn to move";
+              } else {
+                return `Waiting for ${helperUtil.mapTurnToName(
+                  currentTurn
+                )} to move`;
+              }
+            })(),
+          });
         }
+      }
+
+      // handle error
+      if (messageData.type === WebSocketMessageTypeEnum.Error) {
+        const errorMsg = messageData as IWSErrorMessage;
+        // check if game ended
+        if (errorMsg.message.includes("Game no longer exists")) {
+          console.log("game ended");
+        }
+        toast.error(`Game Error: ${errorMsg.message}`);
       }
     } catch (err) {
       console.error("Failed to parse WebSocket message:", err);
-      // --- Also clear move pending on error ---
+      // clear move pending on error
       setIsMovePending(false);
     }
   }, [lastMessage, game, gameId, playerColor, playSound, stablePlayerColor]);
 
-  // --- Spectator: Send viewGame message on mount ---
+  // Spectator: Send viewGame message on mount
   useEffect(() => {
     if (isSpectator && gameId) {
       setTimeout(() => {
@@ -409,14 +399,13 @@ export function HumanVsHumanV2() {
     }
   }, [isSpectator, gameId, sendMessage, updateGameState]);
 
-  // --- Spectator: Disable all board interactions ---
   const handleSquareClick = useCallback(
     (square: Square) => {
+      // Spectators cannot interact with the board
       if (isSpectator) {
-        // Spectators cannot interact with the board
         return;
       }
-      // --- Prevent move if waiting for backend ---
+      // Prevent move if waiting for backend
       if (isMovePending) {
         toast.info("Waiting for server response...");
         return;
@@ -472,9 +461,6 @@ export function HumanVsHumanV2() {
             });
 
             if (move && gameId) {
-              // Play sound for our own move
-              playSound(isCaptureMove(move));
-
               const moveMessage: IWSMoveMessage = {
                 type: WebSocketMessageTypeEnum.Move,
                 gameId,
@@ -484,15 +470,15 @@ export function HumanVsHumanV2() {
                 move: `${move.from}${move.to}`,
               };
 
-              // --- Send move message to the server ---
+              //  Send move message to the server
               sendMessage(JSON.stringify(moveMessage));
 
-              // --- Set move pending, do NOT update board/UI yet ---
+              //  Set move pending, do NOT update board/UI yet
               setIsMovePending(true);
 
-              // --- Do NOT updateGameState here; wait for backend Move broadcast ---
+              //  Do NOT updateGameState here; wait for backend Move broadcast
 
-              // --- Clear any previous timeout and set a new one (optional, for UI feedback) ---
+              //  Clear any previous timeout and set a new one (optional, for UI feedback)
               if (moveHighlightTimeoutRef.current) {
                 clearTimeout(moveHighlightTimeoutRef.current);
               }
@@ -531,7 +517,7 @@ export function HumanVsHumanV2() {
     ]
   );
 
-  // --- Spectator: If game not found or deleted, show error and return to Ongoing Games ---
+  // Spectator: If game not found or deleted, show error and return to Ongoing Games
   useEffect(() => {
     if (!isLoadingGameDetails && !retrievedGameDetails && isSpectator) {
       toast.error("Game not found or has ended.");
@@ -670,13 +656,14 @@ export function HumanVsHumanV2() {
   const [showResignDialog, setShowResignDialog] = useState(false);
   const resignSentRef = useRef(false);
 
-  // --- Resign logic ---
+  // Resign logic
   const handleResign = useCallback(() => {
     if (
       !gameId ||
       !walletAddress ||
       gameState.isEnded ||
-      resignSentRef.current
+      resignSentRef.current ||
+      isSpectator
     ) {
       return;
     }
@@ -703,7 +690,7 @@ export function HumanVsHumanV2() {
     stablePlayerColor,
   ]);
 
-  // --- Timer logic: only decrement current player's timer when game is ongoing ---
+  //Timer logic: only decrement current player's timer when game is ongoing
   useEffect(() => {
     if (gameState.isEnded) return;
 

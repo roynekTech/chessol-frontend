@@ -48,13 +48,6 @@ export enum GameCategoryEnum {
   AI = "AI",
 }
 
-// --- Shared Types ---
-export interface IMove {
-  from: string;
-  to: string;
-  promotion?: string;
-}
-
 export interface IBetDetails {
   playerAmount: number;
   transactionIds: string[];
@@ -141,7 +134,7 @@ export interface IWSMoveBroadcast {
   fen: string;
   turn: SideEnum | string;
   valid: boolean;
-  lastMove: IMove | string; // can be object or empty string
+  lastMove: string; // can be object or empty string
   nonce: string;
   clientTime?: number;
 }

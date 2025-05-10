@@ -82,4 +82,12 @@ export const helperUtil = {
       return isoString;
     }
   },
+
+  mapTurnToName: (turn: Color) => {
+    if (turn === "w") {
+      return "white";
+    } else {
+      return "black";
+    }
+  },
 };
