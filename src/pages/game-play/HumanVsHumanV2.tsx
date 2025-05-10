@@ -128,10 +128,7 @@ export function HumanVsHumanV2() {
   const { data: retrievedGameDetails, isLoading: isLoadingGameDetails } =
     useGetData<IGetGameDataMemResponse>(
       API_PATHS.getInMemGameDetails(gameId!),
-      ["gameDetails", gameId!],
-      {
-        enabled: !!gameId,
-      }
+      ["gameDetails", gameId!]
     );
 
   // Clean up move highlight timeout on unmount

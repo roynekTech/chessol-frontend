@@ -8,8 +8,10 @@ import {
   Bot,
   Monitor,
   Clock,
-  Users,
   Gamepad2,
+  Trophy,
+  Plus,
+  Search,
 } from "lucide-react";
 import { GameModeModal } from "@/components/GameModeModal";
 import { JoinGameModal } from "@/components/JoinGameModal";
@@ -71,54 +73,115 @@ export function OngoingGames() {
     navigate(PAGE_ROUTES.GamePlay);
   };
 
+  const navigateToTournaments = () => {
+    navigate(PAGE_ROUTES.TournamentPage);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-purple-950 to-black text-gray-200 p-6">
       {/* Background glow effects - subtle adjustments */}
       <div className="fixed top-0 right-0 w-96 h-96 bg-amber-600/5 rounded-full filter blur-3xl pointer-events-none"></div>
       <div className="fixed bottom-0 left-0 w-96 h-96 bg-purple-800/5 rounded-full filter blur-3xl pointer-events-none"></div>
 
-      {/* Header with animated underline and new buttons */}
-      <div className="max-w-6xl mx-auto mb-12">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-          {/* Back to home button - simplified style */}
+      {/* Header with action buttons */}
+      <div className="max-w-6xl mx-auto mb-8">
+        <div className="flex justify-between items-center">
           <Button
             variant="ghost"
             onClick={() => navigate("/")}
-            className="text-gray-400 hover:text-black rounded-full px-4"
+            className="text-gray-400 hover:text-white rounded-full px-4"
           >
             <ArrowLeft className="mr-2 h-4 w-4" /> Back
           </Button>
 
           <h1 className="text-3xl md:text-4xl font-bold text-center relative group">
             <span className="bg-gradient-to-r from-amber-400 via-orange-500 to-yellow-500 text-transparent bg-clip-text">
-              Ongoing Games
+              Chess Arena
             </span>
-            <span className="block h-0.5 max-w-0 group-hover:max-w-full transition-all duration-500 bg-gradient-to-r from-amber-400 via-orange-500  to-yellow-500"></span>
+            <span className="block h-0.5 max-w-0 group-hover:max-w-full transition-all duration-500 bg-gradient-to-r from-amber-400 via-orange-500 to-yellow-500"></span>
           </h1>
 
-          {/* New Action Buttons */}
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              className="text-amber-400 border-amber-700/30 bg-black/30 hover:bg-amber-900/30 hover:text-amber-300 hover:border-amber-600 transition-all duration-300 rounded-full shadow-sm shadow-amber-900/10"
-              onClick={() => {
-                setIsJoinModalOpen(true);
-              }}
-            >
-              <Users className="mr-2 h-4 w-4" /> Join Game
-            </Button>
-            <Button
-              className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 rounded-full shadow-lg shadow-amber-900/20 font-medium transition-all duration-300 transform hover:scale-105"
-              onClick={() => setIsModalOpen(true)}
-            >
-              <Gamepad2 className="mr-2 h-4 w-4" /> Create Game
-            </Button>
+          <div className="opacity-0 w-[88px]">
+            {/* Empty div for flex alignment */}
           </div>
         </div>
       </div>
 
-      {/* Game List with enhanced cards */}
+      {/* Game options and tournament navigation */}
+      <div className="max-w-6xl mx-auto mb-10">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Create Game Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="bg-gradient-to-b from-amber-950/20 to-black/40 backdrop-blur-sm border border-amber-700/30 rounded-xl overflow-hidden hover:border-amber-500/50 hover:shadow-lg hover:shadow-amber-900/10 transition-all duration-300 group"
+            onClick={() => setIsModalOpen(true)}
+          >
+            <div className="p-6 flex flex-col items-center text-center cursor-pointer">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-500/20 to-amber-800/40 flex items-center justify-center border border-amber-500/30 mb-4 group-hover:scale-110 transition-transform duration-300">
+                <Plus className="h-7 w-7 text-amber-400 group-hover:text-amber-300" />
+              </div>
+              <h3 className="text-xl font-semibold text-amber-300 mb-2">
+                Create Game
+              </h3>
+              <p className="text-sm text-gray-400">
+                Start a new chess match with custom settings
+              </p>
+            </div>
+          </motion.div>
+
+          {/* Join Game Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
+            className="bg-gradient-to-b from-purple-950/20 to-black/40 backdrop-blur-sm border border-purple-700/30 rounded-xl overflow-hidden hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-900/10 transition-all duration-300 group"
+            onClick={() => setIsJoinModalOpen(true)}
+          >
+            <div className="p-6 flex flex-col items-center text-center cursor-pointer">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500/20 to-purple-800/40 flex items-center justify-center border border-purple-500/30 mb-4 group-hover:scale-110 transition-transform duration-300">
+                <Search className="h-7 w-7 text-purple-400 group-hover:text-purple-300" />
+              </div>
+              <h3 className="text-xl font-semibold text-purple-300 mb-2">
+                Join Game
+              </h3>
+              <p className="text-sm text-gray-400">
+                Enter a game ID to join an existing match
+              </p>
+            </div>
+          </motion.div>
+
+          {/* Tournament Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.2 }}
+            className="bg-gradient-to-b from-blue-950/20 to-black/40 backdrop-blur-sm border border-blue-700/30 rounded-xl overflow-hidden hover:border-blue-500/50 hover:shadow-lg hover:shadow-blue-900/10 transition-all duration-300 group"
+            onClick={navigateToTournaments}
+          >
+            <div className="p-6 flex flex-col items-center text-center cursor-pointer">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500/20 to-blue-800/40 flex items-center justify-center border border-blue-500/30 mb-4 group-hover:scale-110 transition-transform duration-300">
+                <Trophy className="h-7 w-7 text-blue-400 group-hover:text-blue-300" />
+              </div>
+              <h3 className="text-xl font-semibold text-blue-300 mb-2">
+                Tournaments
+              </h3>
+              <p className="text-sm text-gray-400">
+                Join competitive tournaments and win prizes
+              </p>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+
+      {/* Ongoing Games Section */}
       <div className="max-w-6xl mx-auto">
+        <h2 className="text-2xl font-bold mb-6 text-gray-100 border-b border-gray-800 pb-4 flex items-center">
+          <Gamepad2 className="mr-3 h-5 w-5 text-amber-400" />
+          <span>Ongoing Games</span>
+        </h2>
+
         {isLoadingGames ? (
           <div className="text-center py-16">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500 mx-auto"></div>
@@ -206,7 +269,7 @@ export function OngoingGames() {
                       {/* Spectator Count */}
                       <div className="flex items-center gap-1.5">
                         <Eye className="h-3 w-3" />
-                        <span>{game?.spectator_count || 0}</span>{" "}
+                        <span>{game?.spectator_count || 0}</span>
                       </div>
                     </div>
                     {/* Spectate Button */}
