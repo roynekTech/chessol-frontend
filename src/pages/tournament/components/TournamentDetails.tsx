@@ -265,8 +265,8 @@ export const TournamentDetails: FC<TournamentDetailsProps> = ({
               transition={{ duration: 0.4, delay: 0.1 }}
               className="md:col-span-2"
             >
-              <Card className="border-gray-800/50 backdrop-blur-md bg-gradient-to-b from-black/40 to-black/60 rounded-xl overflow-hidden shadow-xl">
-                <CardHeader className="bg-black/30 border-b border-gray-800/50">
+              <Card className="border-gray-800/50 backdrop-blur-md bg-gradient-to-b from-black/40 to-black/60 rounded-xl overflow-hidden shadow-xl pt-0">
+                <CardHeader className="bg-black/30 border-b border-gray-800/50 pt-4">
                   <div className="flex items-center gap-2">
                     <Users className="h-5 w-5 text-purple-400" />
                     <CardTitle className="text-xl font-bold text-white">
@@ -359,8 +359,8 @@ export const TournamentDetails: FC<TournamentDetailsProps> = ({
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.2 }}
             >
-              <Card className="border-gray-800/50 backdrop-blur-md bg-gradient-to-b from-black/40 to-black/60 rounded-xl overflow-hidden shadow-xl h-full">
-                <CardHeader className="bg-black/30 border-b border-gray-800/50">
+              <Card className="border-gray-800/50 backdrop-blur-md bg-gradient-to-b from-black/40 to-black/60 rounded-xl overflow-hidden shadow-xl h-full pt-0">
+                <CardHeader className="bg-black/30 border-b border-gray-800/50 pt-4">
                   <div className="flex items-center gap-2">
                     <Trophy className="h-5 w-5 text-amber-400" />
                     <CardTitle className="text-xl font-bold text-white">

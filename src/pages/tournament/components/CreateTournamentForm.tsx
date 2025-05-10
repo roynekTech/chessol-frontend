@@ -116,11 +116,11 @@ export const CreateTournamentForm: FC<CreateTournamentFormProps> = ({
       <div className="absolute top-0 right-0 w-64 h-64 bg-amber-600/10 rounded-full filter blur-3xl pointer-events-none"></div>
       <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-800/10 rounded-full filter blur-3xl pointer-events-none"></div>
 
-      <Card className="border-gray-800/70 backdrop-blur-md bg-black/40 shadow-xl max-w-3xl mx-auto relative overflow-hidden">
+      <Card className="border-gray-800/70 backdrop-blur-md bg-black/40 shadow-xl max-w-3xl mx-auto relative overflow-hidden py-0">
         {/* Subtle shine effect */}
         <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-purple-500/5 to-transparent pointer-events-none"></div>
 
-        <CardHeader className="border-b border-gray-800/50 bg-gradient-to-r from-black/60 to-gray-900/60 relative">
+        <CardHeader className="border-b border-gray-800/50 bg-gradient-to-r from-black/60 to-gray-900/60 relative pt-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -497,7 +497,7 @@ export const CreateTournamentForm: FC<CreateTournamentFormProps> = ({
             )}
           </CardContent>
 
-          <CardFooter className="flex justify-between border-t border-gray-800/50 bg-gradient-to-r from-black/60 to-gray-900/60 pt-6 pb-6">
+          <CardFooter className="flex justify-between border-t border-gray-800/50 bg-gradient-to-r from-black/60 to-gray-900/60 pt-6 pb-6 mt-6">
             <Button
               type="button"
               variant="outline"
