@@ -164,21 +164,17 @@ export function HumanVsHumanV2() {
       walletAddress: walletAddress!,
     };
 
+    // Update game state to show reconnecting status
+    updateGameState({
+      gameStatus: "Attempting to reconnect...",
+    });
+
     // sleep for 2 seconds so that websocket can initiate
     setTimeout(() => {
       if (walletAddress && gameId) {
         sendMessage(JSON.stringify(reconnectMessage));
       }
     }, 2000);
-
-    // Update UI to show reconnection attempt
-    // setGameState((prev) => ({
-    //   ...prev,
-    //   gameStatus: "Attempting to reconnect...",
-    // }));
-    updateGameState({
-      gameStatus: "Attempting to reconnect...",
-    });
   }, [navigate]);
 
   // --- Helper: Format Game Ended Message ---
@@ -222,15 +218,6 @@ export function HumanVsHumanV2() {
   const isCaptureMove = (move: { captured?: string }): boolean => {
     return Boolean(move.captured);
   };
-
-  // --- Keepalive Ping ---
-  // Effect: Sends a {type: "ping"} message every 25 seconds to keep the WebSocket alive
-  useEffect(() => {
-    const interval = setInterval(() => {
-      sendMessage(JSON.stringify({ type: "ping" }));
-    }, 25000);
-    return () => clearInterval(interval);
-  }, [sendMessage]);
 
   // --- Move Pending State ---
   // Effect: Prevents user from making another move until backend confirms

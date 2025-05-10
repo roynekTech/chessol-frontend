@@ -124,7 +124,7 @@ export interface IWSJoinedMessage {
   config?: IGameConfig;
 }
 
-// 3. Make Move
+// outgoing move message
 export interface IWSMoveMessage {
   type: WebSocketMessageTypeEnum.Move;
   gameId: string;
@@ -135,6 +135,7 @@ export interface IWSMoveMessage {
   initialFen: string;
 }
 
+// incoming move message
 export interface IWSMoveBroadcast {
   type: WebSocketMessageTypeEnum.Move;
   fen: string;
@@ -142,6 +143,7 @@ export interface IWSMoveBroadcast {
   valid: boolean;
   lastMove: IMove | string; // can be object or empty string
   nonce: string;
+  clientTime?: number;
 }
 
 // 4. List Games
