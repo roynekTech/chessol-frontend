@@ -78,7 +78,9 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
     }
     try {
       const escrowPubkey = new PublicKey(ESCROW_ADDRESS);
-      const lamports = Math.floor(Number(0.5) * LAMPORTS_PER_SOL);
+      const lamports = Math.floor(
+        Number(retrievedGameDetails?.amount) * LAMPORTS_PER_SOL
+      );
       const transaction = new Transaction().add(
         SystemProgram.transfer({
           fromPubkey: publicKey,
