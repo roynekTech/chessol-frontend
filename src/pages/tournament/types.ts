@@ -12,7 +12,7 @@ export interface ITournament {
   socials?: Record<string, string>;
   totalPlayers?: number;
   wallets?: Record<string, { nickname?: string }>;
-  isBet?: boolean;
+  isBet?: number;
   configuration?: {
     creator: string;
     mode: string;
