@@ -85,12 +85,22 @@ export const ChatDropdown: React.FC<ChatDropdownProps> = ({
         setMessages((prev) => [
           ...prev,
           {
-            sender: data.sender === walletAddress ? "You" : "Opponent",
+            sender: (() => {
+              if (
+                data?.sender === walletAddress ||
+                data?.initiator === walletAddress
+              ) {
+                return "You";
+              } else if (data?.initiator !== walletAddress) {
+                return "Opponent";
+              }
+              return "Opponent";
+            })(),
             message: data.message,
             timestamp: Date.now(),
           },
         ]);
-        if (data.sender !== walletAddress) {
+        if (data.sender !== walletAddress && data.initiator !== walletAddress) {
           setUnreadMessagesCount((prev) => prev + 1);
           playNotificationSound();
         }

@@ -760,6 +760,32 @@ export function HumanVsHumanV2() {
     }
   };
 
+  // State for draw dialog
+  const [showDrawDialog, setShowDrawDialog] = useState(false);
+  const drawSentRef = useRef(false);
+
+  // Draw offer logic
+  const handleDrawOffer = useCallback(() => {
+    if (
+      !gameId ||
+      !walletAddress ||
+      gameState.isEnded ||
+      drawSentRef.current ||
+      isSpectator
+    ) {
+      return;
+    }
+    drawSentRef.current = true;
+    const drawMsg = {
+      type: WebSocketMessageTypeEnum.Draw,
+      gameId,
+      walletAddress,
+    };
+    sendMessage(JSON.stringify(drawMsg));
+    toast.info("Draw offer sent. Waiting for opponent's response.");
+    setShowDrawDialog(false);
+  }, [gameId, walletAddress, gameState.isEnded, sendMessage, isSpectator]);
+
   // Show loading screen if game details are still loading
   if (isLoadingGameDetails) {
     return (
@@ -946,10 +972,34 @@ export function HumanVsHumanV2() {
                 </AlertDialogContent>
               </AlertDialog>
 
-              <Button className="bg-gray-900/80 hover:bg-gray-800/80 rounded-full w-[72px] h-[72px] flex flex-col items-center justify-center shadow-lg border border-white/10 cursor-pointer">
-                <HandshakeIcon className="w-6 h-6 mb-1" />
-                <span className="text-xs">Draw</span>
-              </Button>
+              <AlertDialog
+                open={showDrawDialog}
+                onOpenChange={setShowDrawDialog}
+              >
+                <AlertDialogTrigger asChild>
+                  <Button className="bg-gray-900/80 hover:bg-gray-800/80 rounded-full w-[72px] h-[72px] flex flex-col items-center justify-center shadow-lg border border-white/10 cursor-pointer">
+                    <HandshakeIcon className="w-6 h-6 mb-1" />
+                    <span className="text-xs">Draw</span>
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Offer Draw</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to offer a draw? If your opponent
+                      accepts, the game will end as a draw.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setShowDrawDialog(false)}>
+                      Cancel
+                    </AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDrawOffer} autoFocus>
+                      Yes, Offer Draw
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           )}
         </div>
