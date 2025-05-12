@@ -74,3 +74,18 @@ export function useUpdateScore() {
     ["tournaments"]
   );
 }
+
+/**
+ * Custom hook to generate fixtures for a tournament
+ */
+export function useGenerateFixtures() {
+  type GenerateFixturesParams = {
+    walletAddress: string;
+    unique_hash: string;
+  };
+
+  return usePostData<ITournamentResponse, GenerateFixturesParams>(
+    API_PATHS.generateFixtures(),
+    ["tournaments"]
+  );
+}

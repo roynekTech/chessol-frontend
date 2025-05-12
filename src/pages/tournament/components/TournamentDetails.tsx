@@ -14,7 +14,10 @@ import {
 } from "@/components/ui/card";
 import { helperUtil } from "@/utils/helper";
 import { JoinTournamentModal } from "./JoinTournamentModal";
-import { useTournamentDetails } from "../hooks/useTournamentHooks";
+import {
+  useTournamentDetails,
+  useGenerateFixtures,
+} from "../hooks/useTournamentHooks";
 import {
   ArrowLeft,
   Trophy,
@@ -25,8 +28,11 @@ import {
   Twitter,
   Clock,
   DollarSign,
+  Globe,
+  Shuffle,
 } from "lucide-react";
 import { ScoreManager } from "./ScoreManager";
+import { toast } from "sonner";
 
 interface TournamentDetailsProps {
   uniqueHash: string;
@@ -39,6 +45,9 @@ export const TournamentDetails: FC<TournamentDetailsProps> = ({
   const { publicKey } = useWallet();
   const [joinModalOpen, setJoinModalOpen] = useState(false);
   const [isAdminView, setIsAdminView] = useState(true);
+  const { mutate: generateFixtures, isPending: generatingFixtures } =
+    useGenerateFixtures();
+  const [fixturesMessage, setFixturesMessage] = useState<string | null>(null);
 
   // TODO: IMPLEMENT ADMIN VIEW
   useEffect(() => {
@@ -170,7 +179,7 @@ export const TournamentDetails: FC<TournamentDetailsProps> = ({
                       {tournament.status.charAt(0).toUpperCase() +
                         tournament.status.slice(1)}
                     </Badge>
-                    {tournament.isBet === 1 && (
+                    {tournament.isBet && tournament.paymentAmount && (
                       <Badge className="bg-purple-900/40 text-purple-300 px-2 py-0.5 rounded-full text-xs border border-purple-700/30">
                         <DollarSign className="h-3 w-3 mr-1" /> Betting
                         Tournament
@@ -255,8 +264,88 @@ export const TournamentDetails: FC<TournamentDetailsProps> = ({
                   Tournament Website
                 </Button>
               )}
+              {isAdminView && tournament.status !== "completed" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={generatingFixtures || !publicKey}
+                  onClick={() => {
+                    setFixturesMessage(null);
+                    if (!publicKey) return;
+                    generateFixtures(
+                      {
+                        walletAddress: publicKey.toString(),
+                        unique_hash: tournament.unique_hash,
+                      },
+                      {
+                        onSuccess: (res) => {
+                          if (res.status === "success") {
+                            setFixturesMessage(
+                              "Fixtures generated successfully!"
+                            );
+                          } else {
+                            setFixturesMessage(null);
+                            toast.error(
+                              res.msg || "Failed to generate fixtures"
+                            );
+                          }
+                          refetch();
+                        },
+                        onError: (err) => {
+                          setFixturesMessage(null);
+                          toast.error(
+                            err instanceof Error
+                              ? err.message
+                              : "An error occurred"
+                          );
+                        },
+                      }
+                    );
+                  }}
+                  className="border-purple-700/60 text-purple-400 hover:bg-purple-900/20 hover:text-purple-300 flex items-center gap-2"
+                >
+                  <Shuffle className="w-4 h-4" />
+                  {generatingFixtures
+                    ? "Generating Fixtures..."
+                    : "Generate Fixtures"}
+                </Button>
+              )}
+              {fixturesMessage && (
+                <div className="text-xs text-purple-400 mt-1">
+                  {fixturesMessage}
+                </div>
+              )}
             </div>
           </motion.div>
+
+          {tournament.image && (
+            <div className="w-full flex justify-center mb-6">
+              <img
+                src={tournament.image}
+                alt="Tournament banner"
+                className="rounded-xl max-h-56 object-cover shadow-lg border border-gray-800/40"
+              />
+            </div>
+          )}
+
+          {tournament.winners && Object.keys(tournament.winners).length > 0 && (
+            <div className="bg-amber-900/10 rounded-lg p-4 border border-amber-900/30 mt-6">
+              <h4 className="font-semibold mb-3 text-amber-400 flex items-center gap-2">
+                <Trophy className="h-4 w-4" /> Winners
+              </h4>
+              <div className="flex flex-col gap-2">
+                {Object.entries(tournament.winners).map(([place, wallet]) => (
+                  <div
+                    key={place}
+                    className="flex items-center gap-2 text-gray-200"
+                  >
+                    <span className="font-bold text-amber-300">{place}:</span>
+                    <span className="font-mono text-xs">{wallet}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Tournament content */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -440,7 +529,7 @@ export const TournamentDetails: FC<TournamentDetailsProps> = ({
                     </div>
                   </div>
 
-                  {tournament.isBet === 1 && tournament.paymentAmount && (
+                  {tournament.isBet && tournament.paymentAmount && (
                     <div className="bg-purple-900/20 rounded-lg p-4 border border-purple-900/30">
                       <h4 className="font-semibold mb-3 text-purple-400 flex items-center gap-2">
                         <DollarSign className="h-4 w-4" /> Betting Information
@@ -469,17 +558,31 @@ export const TournamentDetails: FC<TournamentDetailsProps> = ({
                   )}
                 </CardContent>
                 <CardFooter className="border-t border-gray-800/50 flex-col items-start gap-2 px-6 py-4 bg-black/20">
-                  {tournament.socals && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full justify-start text-gray-300 hover:text-blue-400 hover:bg-blue-900/10"
-                      onClick={() => window.open(tournament.socals, "_blank")}
-                    >
-                      <Twitter className="w-4 h-4 mr-2 text-blue-400" />
-                      Follow on Twitter
-                    </Button>
-                  )}
+                  {tournament.socials &&
+                    Object.keys(tournament.socials).length > 0 && (
+                      <div className="flex flex-wrap gap-3 mt-4">
+                        {Object.entries(tournament.socials).map(
+                          ([platform, url]) => (
+                            <Button
+                              key={platform}
+                              variant="ghost"
+                              size="sm"
+                              className="w-auto justify-start text-gray-300 hover:text-blue-400 hover:bg-blue-900/10"
+                              onClick={() => window.open(url, "_blank")}
+                            >
+                              {platform === "twitter" && (
+                                <Twitter className="w-4 h-4 mr-2 text-blue-400" />
+                              )}
+                              {platform === "discord" && (
+                                <Globe className="w-4 h-4 mr-2 text-blue-400" />
+                              )}
+                              {platform.charAt(0).toUpperCase() +
+                                platform.slice(1)}
+                            </Button>
+                          )
+                        )}
+                      </div>
+                    )}
                   <Button
                     variant="ghost"
                     size="sm"

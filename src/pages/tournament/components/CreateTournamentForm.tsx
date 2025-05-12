@@ -29,6 +29,8 @@ import {
   ShieldCheck,
   Shuffle,
   Users,
+  Image as ImageIcon,
+  SlidersHorizontal,
 } from "lucide-react";
 
 interface CreateTournamentFormProps {
@@ -50,7 +52,8 @@ export const CreateTournamentForm: FC<CreateTournamentFormProps> = ({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [link, setLink] = useState("");
-  const [socials, setSocials] = useState("");
+  const [twitter, setTwitter] = useState("");
+  const [discord, setDiscord] = useState("");
   const [totalPlayers, setTotalPlayers] = useState("16");
   const [isBetting, setIsBetting] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
@@ -58,6 +61,16 @@ export const CreateTournamentForm: FC<CreateTournamentFormProps> = ({
   const [maxRounds, setMaxRounds] = useState("5");
   const [randomStart, setRandomStart] = useState(true);
   const [moveTimeout, setMoveTimeout] = useState("30000");
+  const [winPoints, setWinPoints] = useState("3");
+  const [drawPoints, setDrawPoints] = useState("1");
+  const [lossPoints, setLossPoints] = useState("0");
+  const [starterScore, setStarterScore] = useState("100");
+  const [image, setImage] = useState("");
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [type, setType] = useState("");
+  const [level, setLevel] = useState("");
+  const [uniqueHash, setUniqueHash] = useState("");
+  const [date, setDate] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,12 +80,15 @@ export const CreateTournamentForm: FC<CreateTournamentFormProps> = ({
       setError(null);
       setSuccessMessage(null);
 
+      const socialsObj: Record<string, string> = {};
+      if (twitter) socialsObj.twitter = twitter;
+      if (discord) socialsObj.discord = discord;
       const tournamentData: ICreateTournamentRequest = {
         walletAddress: publicKey.toString(),
         name,
         description,
         link,
-        socals: socials,
+        socials: socialsObj,
         totalPlayers: parseInt(totalPlayers),
         isBet: isBetting,
         configuration: {
@@ -82,10 +98,24 @@ export const CreateTournamentForm: FC<CreateTournamentFormProps> = ({
           moveTimeout: parseInt(moveTimeout),
           numberOfGames: 1,
         },
+        scoring: {
+          win: parseInt(winPoints),
+          draw: parseInt(drawPoints),
+          loss: parseInt(lossPoints),
+        },
+        starterScore: parseInt(starterScore),
+        image: image || undefined,
       };
 
       if (isBetting && paymentAmount) {
         tournamentData.paymentAmount = parseFloat(paymentAmount);
+      }
+
+      if (showAdvanced) {
+        if (type) tournamentData.type = type;
+        if (level) tournamentData.level = parseInt(level);
+        if (uniqueHash) tournamentData.unique_hash = uniqueHash;
+        if (date) tournamentData.date = date;
       }
 
       createTournament(tournamentData, {
@@ -236,13 +266,40 @@ export const CreateTournamentForm: FC<CreateTournamentFormProps> = ({
                     <Twitter className="h-3.5 w-3.5 text-blue-400" />
                     Social Media (Optional)
                   </Label>
-                  <Input
-                    id="socials"
-                    value={socials}
-                    onChange={(e) => setSocials(e.target.value)}
-                    placeholder="https://twitter.com/yourtournament"
-                    className="bg-black/40 border-gray-800/80 focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/30 text-gray-100"
-                  />
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="twitter"
+                        className="text-gray-300 flex items-center gap-1.5"
+                      >
+                        <Twitter className="h-3.5 w-3.5 text-blue-400" />
+                        Twitter (Optional)
+                      </Label>
+                      <Input
+                        id="twitter"
+                        value={twitter}
+                        onChange={(e) => setTwitter(e.target.value)}
+                        placeholder="https://twitter.com/yourtournament"
+                        className="bg-black/40 border-gray-800/80 focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/30 text-gray-100"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="discord"
+                        className="text-gray-300 flex items-center gap-1.5"
+                      >
+                        <Globe className="h-3.5 w-3.5 text-blue-400" />
+                        Discord (Optional)
+                      </Label>
+                      <Input
+                        id="discord"
+                        value={discord}
+                        onChange={(e) => setDiscord(e.target.value)}
+                        placeholder="https://discord.gg/yourtournament"
+                        className="bg-black/40 border-gray-800/80 focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/30 text-gray-100"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </motion.div>
@@ -479,6 +536,184 @@ export const CreateTournamentForm: FC<CreateTournamentFormProps> = ({
                   </p>
                 </motion.div>
               )}
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.6 }}
+              className="space-y-5 pt-5 border-t border-gray-800/40"
+            >
+              <div className="flex items-center gap-2 mb-4">
+                <Award className="h-5 w-5 text-purple-500" />
+                <h3 className="text-lg font-semibold text-gray-200">
+                  Scoring System
+                </h3>
+              </div>
+
+              <div className="grid gap-5 sm:grid-cols-3 mt-6">
+                <div className="space-y-2">
+                  <Label htmlFor="winPoints" className="text-gray-300">
+                    Win Points
+                  </Label>
+                  <Input
+                    id="winPoints"
+                    type="number"
+                    min="0"
+                    value={winPoints}
+                    onChange={(e) => setWinPoints(e.target.value)}
+                    className="bg-black/40 border-gray-800/80 focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/30 text-gray-100"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="drawPoints" className="text-gray-300">
+                    Draw Points
+                  </Label>
+                  <Input
+                    id="drawPoints"
+                    type="number"
+                    min="0"
+                    value={drawPoints}
+                    onChange={(e) => setDrawPoints(e.target.value)}
+                    className="bg-black/40 border-gray-800/80 focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/30 text-gray-100"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lossPoints" className="text-gray-300">
+                    Loss Points
+                  </Label>
+                  <Input
+                    id="lossPoints"
+                    type="number"
+                    min="0"
+                    value={lossPoints}
+                    onChange={(e) => setLossPoints(e.target.value)}
+                    className="bg-black/40 border-gray-800/80 focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/30 text-gray-100"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2 mt-4">
+                <Label htmlFor="starterScore" className="text-gray-300">
+                  Starting Score
+                </Label>
+                <Input
+                  id="starterScore"
+                  type="number"
+                  min="0"
+                  value={starterScore}
+                  onChange={(e) => setStarterScore(e.target.value)}
+                  className="bg-black/40 border-gray-800/80 focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/30 text-gray-100"
+                />
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.7 }}
+              className="space-y-5 pt-5 border-t border-gray-800/40"
+            >
+              <div className="flex items-center gap-2 mb-4">
+                <ImageIcon className="h-5 w-5 text-purple-500" />
+                <h3 className="text-lg font-semibold text-gray-200">
+                  Image URL
+                </h3>
+              </div>
+
+              <div className="space-y-2 mt-4">
+                <Label htmlFor="image" className="text-gray-300">
+                  Tournament Image URL (Optional)
+                </Label>
+                <Input
+                  id="image"
+                  value={image}
+                  onChange={(e) => setImage(e.target.value)}
+                  placeholder="https://example.com/image.png"
+                  className="bg-black/40 border-gray-800/80 focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/30 text-gray-100"
+                />
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.8 }}
+              className="space-y-5 pt-5 border-t border-gray-800/40"
+            >
+              <div className="flex items-center gap-2 mb-4">
+                <Award className="h-5 w-5 text-purple-500" />
+                <h3 className="text-lg font-semibold text-gray-200">
+                  Advanced Settings
+                </h3>
+              </div>
+
+              <div className="mt-6">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="text-sm text-amber-500 hover:text-amber-600 flex items-center gap-2 font-medium"
+                  onClick={() => setShowAdvanced((v) => !v)}
+                >
+                  <SlidersHorizontal className="w-4 h-4" />
+                  {showAdvanced
+                    ? "Hide Advanced Settings"
+                    : "Show Advanced Settings"}
+                </Button>
+                {showAdvanced && (
+                  <div className="grid gap-5 sm:grid-cols-2 mt-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="type" className="text-gray-300">
+                        Type
+                      </Label>
+                      <Input
+                        id="type"
+                        value={type}
+                        onChange={(e) => setType(e.target.value)}
+                        placeholder="tournament"
+                        className="bg-black/40 border-gray-800/80 focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/30 text-gray-100"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="level" className="text-gray-300">
+                        Level
+                      </Label>
+                      <Input
+                        id="level"
+                        type="number"
+                        min="1"
+                        value={level}
+                        onChange={(e) => setLevel(e.target.value)}
+                        placeholder="1"
+                        className="bg-black/40 border-gray-800/80 focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/30 text-gray-100"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="uniqueHash" className="text-gray-300">
+                        Custom Unique Hash
+                      </Label>
+                      <Input
+                        id="uniqueHash"
+                        value={uniqueHash}
+                        onChange={(e) => setUniqueHash(e.target.value)}
+                        placeholder="Auto-generated if left blank"
+                        className="bg-black/40 border-gray-800/80 focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/30 text-gray-100"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="date" className="text-gray-300">
+                        Date
+                      </Label>
+                      <Input
+                        id="date"
+                        type="date"
+                        value={date}
+                        onChange={(e) => setDate(e.target.value)}
+                        className="bg-black/40 border-gray-800/80 focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/30 text-gray-100"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
             </motion.div>
 
             {error && (

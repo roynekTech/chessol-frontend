@@ -57,7 +57,11 @@ export function usePostData<T, D>(endpoint: string, queryKey: string[]) {
         const responseData = await response.json();
 
         if (!response.ok) {
-          throw new Error(responseData?.message || "Error sending message");
+          throw new Error(
+            responseData?.message ||
+              responseData?.msg ||
+              "Error sending message"
+          );
         }
 
         return responseData;

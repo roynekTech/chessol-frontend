@@ -37,6 +37,10 @@ export const API_PATHS = {
   updateScore: () => {
     return "update-score";
   },
+
+  generateFixtures: () => {
+    return "generate-fixtures";
+  },
 };
 
 export const PAGE_ROUTES = {

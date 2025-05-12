@@ -9,11 +9,12 @@ export interface ITournament {
   description: string;
   status: "upcoming" | "active" | "completed";
   link?: string;
-  socals?: string;
+  socials?: Record<string, string>;
   totalPlayers?: number;
   wallets?: Record<string, { nickname?: string }>;
-  isBet?: number;
+  isBet?: boolean;
   configuration?: {
+    creator: string;
     mode: string;
     max_rounds: number;
     moveTimeout?: number;
@@ -25,11 +26,12 @@ export interface ITournament {
   paymentAmount?: number;
   starterScore?: number;
   scoring?: {
-    win: number;
-    draw: number;
-    loss: number;
-    [key: string]: number;
+    win?: number;
+    draw?: number;
+    loss?: number;
+    [wallet: string]: number | undefined;
   };
+  winners?: Record<string, string>;
 }
 
 export interface ICreateTournamentRequest {
@@ -37,7 +39,7 @@ export interface ICreateTournamentRequest {
   name?: string;
   description?: string;
   link?: string;
-  socals?: string;
+  socials?: Record<string, string>;
   totalPlayers?: number;
   isBet?: boolean;
   configuration?: {
@@ -52,15 +54,17 @@ export interface ICreateTournamentRequest {
   paymentAmount?: number;
   starterScore?: number;
   scoring?: {
-    win: number;
-    draw: number;
-    loss: number;
+    win?: number;
+    draw?: number;
+    loss?: number;
+    [wallet: string]: number | undefined;
   };
   image?: string;
   type?: string;
   level?: number;
   unique_hash?: string;
   date?: string;
+  winners?: Record<string, string>;
 }
 
 export interface IJoinTournamentRequest {
