@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <!-- Background circle -->
+  <circle cx="50" cy="50" r="48" fill="#0f172a" />
+  <circle cx="50" cy="50" r="45" fill="none" stroke="#334155" stroke-width="1" />
+  
+  <!-- Simplified chessboard pattern -->
+  <rect x="25" y="25" width="25" height="25" fill="#334155" />
+  <rect x="50" y="25" width="25" height="25" fill="#1e293b" />
+  <rect x="25" y="50" width="25" height="25" fill="#1e293b" />
+  <rect x="50" y="50" width="25" height="25" fill="#334155" />
+  
+  <!-- Simplified knight silhouette -->
+  <path d="M65,37 C64,32 60,30 55,30 C50,30 47,32 45,37 C44,40 45,44 47,47 L42,53 L40,51 L38,54 L36,51 L34,53 L32,60 L38,63 L57,63 L60,60 L57,52 L55,51 L59,45 C61,43 62,40 61,37 Z" fill="#ea580c" />
+  
+  <!-- Golden accent -->
+  <path d="M40,51 L38,54 L36,51" stroke="#f97316" stroke-width="1.5" stroke-linecap="round" />
+</svg> 

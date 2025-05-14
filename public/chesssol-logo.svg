@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="95" fill="#0f172a" />
+  <circle cx="100" cy="100" r="88" fill="none" stroke="#334155" stroke-width="1" />
+  
+  <!-- Chessboard pattern -->
+  <g transform="translate(50, 50) scale(0.5)">
+    <rect x="0" y="0" width="50" height="50" fill="#334155" />
+    <rect x="50" y="0" width="50" height="50" fill="#1e293b" />
+    <rect x="100" y="0" width="50" height="50" fill="#334155" />
+    <rect x="150" y="0" width="50" height="50" fill="#1e293b" />
+    
+    <rect x="0" y="50" width="50" height="50" fill="#1e293b" />
+    <rect x="50" y="50" width="50" height="50" fill="#334155" />
+    <rect x="100" y="50" width="50" height="50" fill="#1e293b" />
+    <rect x="150" y="50" width="50" height="50" fill="#334155" />
+    
+    <rect x="0" y="100" width="50" height="50" fill="#334155" />
+    <rect x="50" y="100" width="50" height="50" fill="#1e293b" />
+    <rect x="100" y="100" width="50" height="50" fill="#334155" />
+    <rect x="150" y="100" width="50" height="50" fill="#1e293b" />
+    
+    <rect x="0" y="150" width="50" height="50" fill="#1e293b" />
+    <rect x="50" y="150" width="50" height="50" fill="#334155" />
+    <rect x="100" y="150" width="50" height="50" fill="#1e293b" />
+    <rect x="150" y="150" width="50" height="50" fill="#334155" />
+  </g>
+  
+  <!-- Chess knight silhouette -->
+  <path d="M135,75 C132,65 124,60 115,60 C106,60 98,65 95,75 C93,82 95,88 98,93 L88,105 L83,102 L78,107 L73,102 L69,105 L65,120 L76,125 L85,125 L95,125 L104,125 L115,125 L120,120 L115,105 L110,101 L118,90 C122,85 124,80 123,74 Z" fill="#ea580c" />
+  
+  <!-- Golden accent -->
+  <path d="M135,75 C132,65 124,60 115,60 C114,60 113,60 112,60.2" stroke="#f97316" stroke-width="3" stroke-linecap="round" />
+  <path d="M83,102 L78,107 L73,102" stroke="#f97316" stroke-width="2" stroke-linecap="round" />
+  
+  <!-- Text "ChessSol" - removed for cleaner logo design -->
+</svg> 
