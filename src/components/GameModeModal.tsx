@@ -14,6 +14,8 @@ import { User, Bot, Swords, Zap, Clock } from "lucide-react";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { useGetData } from "../utils/use-query-hooks";
 import {
   OpponentTypeEnum,
   IWSCreatedMessage,
@@ -48,6 +50,17 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
   const [duration, setDuration] = useState<number>(300000); // default 5 min
   const [isBetting, setIsBetting] = useState<boolean>(false);
   const [playerAmount, setPlayerAmount] = useState<string>("");
+
+  // Fetch SOL/USDT price
+  const {
+    data: solPriceData,
+    isLoading: isSolPriceLoading,
+    error: solPriceError,
+  } = useGetData<{ price: number; source: string }>(
+    "https://chesssol.com/api/chesssol/backend/solana-price",
+    ["solanaPrice"],
+    { refetchInterval: 30000 }
+  );
   const [side, setSide] = useState<"w" | "b" | "random">("random"); // Allow "random" for side
   const { publicKey } = useWallet();
   const walletAddress = publicKey?.toBase58() || "";
@@ -519,6 +532,35 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
                         className="mt-2 bg-black/40 border-gray-700 text-white focus:border-amber-500 focus:ring-amber-500 rounded-md"
                         required={isBetting}
                       />
+                      {/* USDT Equivalent Display */}
+                      <div
+                        className="mt-2 flex items-center space-x-2"
+                        aria-live="polite"
+                      >
+                        {isSolPriceLoading ? (
+                          <span className="animate-pulse text-gray-400 text-sm">
+                            Fetching price...
+                          </span>
+                        ) : solPriceError ? (
+                          <span className="text-red-500 text-sm">
+                            Unable to fetch price
+                          </span>
+                        ) : (
+                          <Badge className="bg-gradient-to-r from-yellow-400 to-amber-500 text-black/90 shadow-lg rounded-lg px-3 py-1 text-sm font-semibold glassmorphism">
+                            ${" "}
+                            {playerAmount &&
+                            !isNaN(Number(playerAmount)) &&
+                            solPriceData?.price
+                              ? (
+                                  parseFloat(playerAmount) * solPriceData.price
+                                ).toLocaleString("en-US", {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })
+                              : "—"}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                     {/* <div>
                         <p className="text-sm text-white mb-2 bg-gray-500 rounded-md p-2">

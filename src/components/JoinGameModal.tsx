@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { LogIn, Info, DollarSign } from "lucide-react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
@@ -24,7 +25,6 @@ import {
 } from "../utils/type";
 import { toast } from "sonner";
 import { useWebSocketContext } from "../context/useWebSocketContext";
-import { useGetData } from "../utils/use-query-hooks";
 import { API_PATHS, ESCROW_ADDRESS, PAGE_ROUTES } from "../utils/constants";
 import {
   LAMPORTS_PER_SOL,
@@ -34,6 +34,7 @@ import {
 } from "@solana/web3.js";
 import { useChessGameStore } from "../stores/chessGameStore";
 import { Color } from "chess.js";
+import { useGetData } from "../utils/use-query-hooks";
 
 interface IJoinGameModalProps {
   open: boolean;
@@ -41,6 +42,16 @@ interface IJoinGameModalProps {
 }
 
 export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
+  // Fetch SOL/USDT price (must be inside the component)
+  const {
+    data: solPriceData,
+    isLoading: isSolPriceLoading,
+    error: solPriceError,
+  } = useGetData<{ price: number; source: string }>(
+    "https://chesssol.com/api/chesssol/backend/solana-price",
+    ["solanaPrice"],
+    { refetchInterval: 30000 }
+  );
   const navigate = useNavigate();
   const [gameId, setGameId] = useState<string>("");
   const [debouncedGameId, setDebouncedGameId] = useState<string>("");
@@ -369,6 +380,36 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
                     className="mt-1 bg-black/40 border-gray-700 text-white focus:border-amber-500 focus:ring-amber-500"
                     disabled
                   />
+                  {/* USDT Equivalent Display */}
+                  <div
+                    className="mt-2 flex items-center space-x-2"
+                    aria-live="polite"
+                  >
+                    {isSolPriceLoading ? (
+                      <span className="animate-pulse text-gray-400 text-sm">
+                        Fetching price...
+                      </span>
+                    ) : solPriceError ? (
+                      <span className="text-red-500 text-sm">
+                        Unable to fetch price
+                      </span>
+                    ) : (
+                      <Badge className="bg-gradient-to-r from-yellow-400 to-amber-500 text-black/90 shadow-lg rounded-lg px-3 py-1 text-sm font-semibold glassmorphism">
+                        ${" "}
+                        {retrievedGameDetails?.amount &&
+                        !isNaN(Number(retrievedGameDetails.amount)) &&
+                        solPriceData?.price
+                          ? (
+                              Number(retrievedGameDetails.amount) *
+                              solPriceData.price
+                            ).toLocaleString("en-US", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })
+                          : "—"}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
                   You will be prompted to approve the transaction automatically
