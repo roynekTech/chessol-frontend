@@ -45,6 +45,7 @@ import { useGetData } from "../../utils/use-query-hooks";
 import { LoaderWithInnerLoader } from "../../components/Loader";
 import { PlayerPanel } from "../../components/game/PlayerPanel";
 import { useChessGameStore } from "../../stores/chessGameStore";
+import { PromotionModal } from "../../components/game/PromotionModal";
 
 // Sound files
 const MOVE_SOUND_SRC = "/move-sound.wav";
@@ -176,6 +177,12 @@ export function HumanVsHumanV2() {
 
   // Effect: Prevents user from making another move until backend confirms
   const [isMovePending, setIsMovePending] = useState(false);
+
+  // --- Promotion State ---
+  const [pendingPromotion, setPendingPromotion] = useState<{
+    from: string;
+    to: string;
+  } | null>(null);
 
   // Handle WebSocket messages
   useEffect(() => {
@@ -396,15 +403,70 @@ export function HumanVsHumanV2() {
     }
   }, [isSpectator, gameId, sendMessage, updateGameState]);
 
+  // --- Check if move is a pawn promotion ---
+  const isPromotionMove = useCallback((from: string, to: string): boolean => {
+    try {
+      const piece = game.get(from as Square);
+      if (!piece || piece.type !== "p") return false;
+
+      const toRank = to[1];
+      return (piece.color === "w" && toRank === "8") || (piece.color === "b" && toRank === "1");
+    } catch {
+      return false;
+    }
+  }, [game]);
+
+  // --- Handle Promotion Piece Selection ---
+  const handlePromotionSelect = useCallback((piece: "q" | "r" | "b" | "n") => {
+    if (!pendingPromotion || !gameId) return;
+
+    try {
+      const initialFen = game.fen();
+      const move = game.move({
+        from: pendingPromotion.from,
+        to: pendingPromotion.to,
+        promotion: piece,
+      });
+
+      if (move) {
+        const moveMessage: IWSMoveMessage = {
+          type: WebSocketMessageTypeEnum.Move,
+          gameId,
+          fen: game.fen(),
+          initialFen,
+          walletAddress: walletAddress!,
+          move: `${move.from}${move.to}${piece}`, // Include promotion piece
+        };
+
+        sendMessage(JSON.stringify(moveMessage));
+        setIsMovePending(true);
+
+        if (moveHighlightTimeoutRef.current) {
+          clearTimeout(moveHighlightTimeoutRef.current);
+        }
+      }
+    } catch (error) {
+      console.error("Promotion move error:", error);
+      toast.error("Invalid promotion move!");
+      setIsMovePending(false);
+    } finally {
+      setPendingPromotion(null);
+      updateGameState({
+        selectedSquare: null,
+        validMoves: [],
+      });
+    }
+  }, [pendingPromotion, gameId, game, walletAddress, sendMessage, updateGameState]);
+
   const handleSquareClick = useCallback(
     (square: Square) => {
       // Spectators cannot interact with the board
       if (isSpectator) {
         return;
       }
-      // Prevent move if waiting for backend
-      if (isMovePending) {
-        toast.info("Waiting for server response...");
+      // Prevent move if waiting for backend or promotion pending
+      if (isMovePending || pendingPromotion) {
+        if (isMovePending) toast.info("Waiting for server response...");
         return;
       }
 
@@ -449,12 +511,32 @@ export function HumanVsHumanV2() {
         }
       } else {
         if (gameState?.validMoves?.includes(square)) {
+          // Check if this is a promotion move
+          if (isPromotionMove(gameState.selectedSquare, square)) {
+            // Test if the move is valid by creating a temporary game
+            const tempGame = new Chess(game.fen());
+            try {
+              tempGame.move({
+                from: gameState.selectedSquare,
+                to: square,
+                promotion: "q", // Test with queen
+              });
+              // Move is valid, show promotion modal
+              setPendingPromotion({
+                from: gameState.selectedSquare,
+                to: square,
+              });
+              return;
+            } catch {
+              // Move is invalid, continue with normal move handling
+            }
+          }
+
           try {
             const initialFen = game.fen();
             const move = game.move({
               from: gameState.selectedSquare,
               to: square,
-              promotion: "q", // Always promote to queen for simplicity
             });
 
             if (move && gameId) {
@@ -1004,6 +1086,13 @@ export function HumanVsHumanV2() {
           )}
         </div>
       </div>
+
+      {/* --- Promotion Modal --- */}
+      <PromotionModal
+        isOpen={!!pendingPromotion}
+        playerColor={stablePlayerColor}
+        onPieceSelect={handlePromotionSelect}
+      />
     </div>
   );
 }

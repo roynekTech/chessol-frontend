@@ -386,4 +386,8 @@ export interface IGameState {
    * Wallet address for the black player (if available)
    */
   player2Wallet?: string;
+  /**
+   * Pending promotion move (if any)
+   */
+  pendingPromotion?: { from: Square; to: Square } | null;
 }
