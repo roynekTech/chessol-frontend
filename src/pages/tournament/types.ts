@@ -1,70 +1,44 @@
 export interface ITournament {
   tournmt_id: number;
   name: string;
+  description: string;
   type: string;
   level: number;
   unique_hash: string;
   date: string;
-  image: string;
-  description: string;
   status: "upcoming" | "active" | "completed";
   link?: string;
-  socials?: Record<string, string>;
-  totalPlayers?: number;
-  wallets?: Record<string, { nickname?: string }>;
-  isBet?: number;
+  isBet?: boolean;
   configuration?: {
-    creator: string;
-    mode: string;
+    mode: "bullet" | "blitz" | "rapid" | "classical";
     max_rounds: number;
-    moveTimeout?: number;
     randomStart?: boolean;
+    moveTimeout?: number;
     numberOfGames?: number;
-    resignationTime?: null | number;
-    abortTimeout?: null | number;
+    resignationTime?: number | null;
+    abortTimeout?: number | null;
   };
   paymentAmount?: number;
   starterScore?: number;
-  scoring?: {
-    win?: number;
-    draw?: number;
-    loss?: number;
-    [wallet: string]: number | undefined;
-  };
-  winners?: Record<string, string>;
 }
 
 export interface ICreateTournamentRequest {
+  name: string;
+  description: string;
   walletAddress: string;
-  name?: string;
-  description?: string;
   link?: string;
-  socials?: Record<string, string>;
-  totalPlayers?: number;
-  isBet?: boolean;
   configuration?: {
-    mode: string;
+    mode: "bullet" | "blitz" | "rapid" | "classical";
     max_rounds: number;
-    moveTimeout?: number;
     randomStart?: boolean;
+    moveTimeout?: number;
     numberOfGames?: number;
-    resignationTime?: null | number;
-    abortTimeout?: null | number;
+    resignationTime?: number | null;
+    abortTimeout?: number | null;
   };
+  isBet?: boolean;
   paymentAmount?: number;
   starterScore?: number;
-  scoring?: {
-    win?: number;
-    draw?: number;
-    loss?: number;
-    [wallet: string]: number | undefined;
-  };
-  image?: string;
-  type?: string;
-  level?: number;
-  unique_hash?: string;
-  date?: string;
-  winners?: Record<string, string>;
 }
 
 export interface IJoinTournamentRequest {
@@ -75,6 +49,13 @@ export interface IJoinTournamentRequest {
   nickname?: string;
   transactionSignature?: string;
   paymentAmount?: number;
+}
+
+export interface IUpdateScoreRequest {
+  unique_hash: string;
+  walletAddress: string;
+  creatorWalletAddress?: string;
+  changeValue: number;
 }
 
 export interface ITournamentResponse {

@@ -74,10 +74,6 @@ export function TournamentPage() {
       : "An unknown error occurred"
     : null;
 
-  const handleCreateSuccess = (newTournamentHash: string) => {
-    navigate(`/tournaments/${newTournamentHash}`);
-  };
-
   const refreshTournaments = () => {
     refetch();
   };
@@ -193,14 +189,14 @@ export function TournamentPage() {
         <TabsList className="w-full max-w-md mx-auto grid grid-cols-2 mb-8 bg-black/30 border border-gray-800/50 p-1 rounded-full">
           <TabsTrigger
             value="browse"
-            className="rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500/80 data-[state=active]:to-orange-600/80 text-white"
+            className="rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500/80 data-[state=active]:to-orange-600/80 text-white cursor-pointer"
           >
             Browse Tournaments
           </TabsTrigger>
           <TabsTrigger
             value="create"
             disabled={!publicKey}
-            className="rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500/80 data-[state=active]:to-orange-600/80 text-white"
+            className="rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500/80 data-[state=active]:to-orange-600/80 text-white cursor-pointer"
           >
             Create Tournament
           </TabsTrigger>
@@ -395,7 +391,7 @@ export function TournamentPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4 }}
             >
-              <CreateTournamentForm onSuccess={handleCreateSuccess} />
+              <CreateTournamentForm />
             </motion.div>
           )}
         </TabsContent>
