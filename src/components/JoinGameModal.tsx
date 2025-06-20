@@ -284,6 +284,8 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
         isJoined: true,
         duration: joinedMessage.duration,
         playerWalletAddress: walletAddress,
+        whitePlayerTimerInMilliseconds: joinedMessage.duration,
+        blackPlayerTimerInMilliseconds: joinedMessage.duration,
       });
 
       setIsJoining(false);

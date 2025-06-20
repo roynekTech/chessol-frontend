@@ -234,6 +234,8 @@ export function GameModeModal({ open, onOpenChange }: GameModeModalProps) {
           isJoined: true,
           duration: createdMessage?.duration || duration,
           playerWalletAddress: walletAddress,
+          whitePlayerTimerInMilliseconds: createdMessage?.duration || duration,
+          blackPlayerTimerInMilliseconds: createdMessage?.duration || duration,
         });
 
         setGameCreated(true);

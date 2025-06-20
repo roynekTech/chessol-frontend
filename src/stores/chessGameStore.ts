@@ -4,10 +4,7 @@ import { Chess } from "chess.js";
 import { localStorageHelper } from "../utils/localStorageHelper";
 
 // Helper: Create a fresh initial IGameState
-function createInitialGameState(
-  fen: string = new Chess().fen(),
-  duration: number = 300000 // 5 minutes in ms
-): IGameState {
+function createInitialGameState(fen: string = new Chess().fen()): IGameState {
   const savedGameState = localStorageHelper.getItem(
     LocalStorageKeysEnum.GameDetails
   );
@@ -27,8 +24,8 @@ function createInitialGameState(
     isOngoing: true,
     isEnded: false,
     moveHighlight: null,
-    whitePlayerTimerInMilliseconds: duration,
-    blackPlayerTimerInMilliseconds: duration,
+    whitePlayerTimerInMilliseconds: 0,
+    blackPlayerTimerInMilliseconds: 0,
     ...savedGameState,
   };
 }
