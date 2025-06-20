@@ -248,7 +248,7 @@ export function TournamentPage() {
                     </div>
                     <div className="bg-green-500 w-3 h-3 rounded-full animate-pulse"></div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {tournaments.active.map((tournament, index) => (
                       <motion.div
                         key={tournament.unique_hash}
@@ -256,10 +256,7 @@ export function TournamentPage() {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3, delay: index * 0.1 }}
                       >
-                        <TournamentCard
-                          tournament={tournament}
-                          onJoinSuccess={refreshTournaments}
-                        />
+                        <TournamentCard tournament={tournament} />
                       </motion.div>
                     ))}
                   </div>
@@ -280,7 +277,7 @@ export function TournamentPage() {
                       </h2>
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {tournaments.upcoming.map((tournament, index) => (
                       <motion.div
                         key={tournament.unique_hash}
@@ -288,10 +285,7 @@ export function TournamentPage() {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3, delay: index * 0.1 }}
                       >
-                        <TournamentCard
-                          tournament={tournament}
-                          onJoinSuccess={refreshTournaments}
-                        />
+                        <TournamentCard tournament={tournament} />
                       </motion.div>
                     ))}
                   </div>
@@ -312,7 +306,7 @@ export function TournamentPage() {
                       </h2>
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {tournaments.completed.map((tournament, index) => (
                       <motion.div
                         key={tournament.unique_hash}
@@ -320,10 +314,7 @@ export function TournamentPage() {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3, delay: index * 0.1 }}
                       >
-                        <TournamentCard
-                          tournament={tournament}
-                          onJoinSuccess={refreshTournaments}
-                        />
+                        <TournamentCard tournament={tournament} />
                       </motion.div>
                     ))}
                   </div>

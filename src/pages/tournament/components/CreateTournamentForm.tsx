@@ -105,7 +105,7 @@ export const CreateTournamentForm: FC = () => {
         setStarterScore(100);
 
         // navigate to the tournament page
-        navigate(`/tournament/${data.insertHash}`);
+        navigate(`/tournaments/${data.insertHash}`);
       },
       onError: (err) => {
         setError(err.message);
