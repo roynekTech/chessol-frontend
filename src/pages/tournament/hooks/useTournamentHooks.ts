@@ -86,7 +86,7 @@ export function useJoinTournament() {
   return useMutation<ITournamentResponse, Error, IJoinTournamentRequest>({
     mutationFn: async (data) => {
       try {
-        const response = await axios.post(API_PATHS.joinTournament(), data);
+        const response = await $axios.post(API_PATHS.joinTournament(), data);
 
         // Check for API-level errors
         if (response.data.error) {

@@ -15,10 +15,13 @@ import {
   DollarSign,
   Star,
   Settings,
+  ArrowLeft,
+  Users,
 } from "lucide-react";
 import { useTournamentDetails } from "../hooks/useTournamentHooks";
 import { JoinTournamentModal } from "./JoinTournamentModal";
 import { useWallet } from "@solana/wallet-adapter-react";
+import { toast } from "sonner";
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -66,7 +69,8 @@ export const TournamentDetails: FC = () => {
               onClick={() => navigate(-1)}
               className="text-amber-400 hover:text-amber-300 font-medium"
             >
-               Back to Tournaments
+              <ArrowLeft className="h-4 w-4 inline-block mr-1" />
+              Back to Tournaments
             </button>
           </div>
         </div>
@@ -76,6 +80,12 @@ export const TournamentDetails: FC = () => {
 
   const tournament = data.tournament;
 
+  // Function to get shortened wallet address
+  const shortenAddress = (address: string) => {
+    if (!address) return "";
+    return `${address.slice(0, 4)}...${address.slice(-4)}`;
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-purple-950 to-black text-gray-200 p-6">
       <div className="max-w-3xl mx-auto">
@@ -83,7 +93,8 @@ export const TournamentDetails: FC = () => {
           onClick={() => navigate(-1)}
           className="mb-6 text-amber-400 hover:text-amber-300 font-medium"
         >
-           Back to Tournaments
+          <ArrowLeft className="h-4 w-4 inline-block mr-1" /> Back to
+          Tournaments
         </button>
         <Card className="border-gray-800/70 backdrop-blur-md bg-gradient-to-b from-black/40 to-black/60 shadow-xl pt-0">
           <CardHeader className="border-b border-gray-800/50 bg-black/30 pt-8">
@@ -275,9 +286,40 @@ export const TournamentDetails: FC = () => {
                 </div>
               </div>
             )}
+            {/* Registered Players Section */}
+            <div className="mt-4 p-4 bg-gray-900/30 rounded-lg border border-gray-800/50">
+              <div className="flex items-center gap-2 mb-3">
+                <Users className="h-4 w-4 text-blue-400" />
+                <span className="text-gray-300 font-semibold">
+                  Registered Players ({tournament.registeredNum || 0}/
+                  {tournament.totalPlayers})
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {tournament.wallets &&
+                Object.keys(tournament.wallets).length > 0 ? (
+                  Object.keys(tournament.wallets).map((wallet) => (
+                    <div
+                      key={wallet}
+                      className="flex items-center gap-2 p-2 rounded-lg bg-gray-800/30 border border-gray-700/30"
+                    >
+                      <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-500/20 to-black/20 flex items-center justify-center border border-purple-800/30">
+                        <Users className="h-4 w-4 text-purple-400" />
+                      </div>
+                      <span className="text-gray-300 font-mono text-sm">
+                        {shortenAddress(wallet.replace("_", ""))}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-400 text-sm col-span-2">
+                    No players have joined yet
+                  </p>
+                )}
+              </div>
+            </div>
             {/* Join Tournament Button */}
             {(() => {
-              // No joined users logic, so just check if publicKey exists
               const canJoin =
                 publicKey && ["upcoming", "active"].includes(tournament.status);
               return canJoin ? (
@@ -295,6 +337,7 @@ export const TournamentDetails: FC = () => {
                     onSuccess={() => {
                       setJoinOpen(false);
                       refetch();
+                      toast.success("Successfully joined the tournament!");
                     }}
                   />
                 </div>

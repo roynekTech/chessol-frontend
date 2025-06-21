@@ -18,8 +18,29 @@ export interface ITournament {
     resignationTime?: number | null;
     abortTimeout?: number | null;
     paymentAmount?: number;
+    creator?: string;
   };
   starterScore?: number;
+  totalPlayers: number;
+  registeredNum: number;
+  wallets: Record<string, object>;
+  transactions: Record<string, string>;
+  socials?: {
+    twitter?: string;
+  };
+  nonce?: string;
+  changeValue?: number;
+  scoring?: Record<string, number>;
+  image?: string;
+  public?: number;
+  game_hashes?: Record<string, string>;
+  fixtures?: Record<string, string>;
+  winners?: Record<string, string>;
+  payoutStatus?: string;
+  contact?: Record<string, string>;
+  emails?: Record<string, string>;
+  addon?: string;
+  timestamp?: string;
 }
 
 export interface ICreateTournamentRequest {
