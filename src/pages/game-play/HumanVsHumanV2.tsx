@@ -1,14 +1,8 @@
 import { useCallback, useEffect, useState, useRef } from "react";
 import { Chess, Square, Color } from "chess.js";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import {
-  ArrowLeft,
-  Trophy,
-  MessageCircle,
-  Flag,
-  HandshakeIcon,
-} from "lucide-react";
+import { ArrowLeft, MessageCircle, Flag, HandshakeIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useWebSocketContext } from "../../context/useWebSocketContext";
@@ -25,11 +19,10 @@ import {
   LocalStorageRoomTypeEnum,
   IWSViewingGameMessage,
 } from "../../utils/type";
-import { calculateCapturedPieces, formatTime } from "../../utils/chessUtils";
+import { calculateCapturedPieces } from "../../utils/chessUtils";
 import { useWallet } from "@solana/wallet-adapter-react";
 import {
   AlertDialog,
-  AlertDialogTrigger,
   AlertDialogContent,
   AlertDialogHeader,
   AlertDialogFooter,
@@ -46,6 +39,7 @@ import { LoaderWithInnerLoader } from "../../components/Loader";
 import { PlayerPanel } from "../../components/game/PlayerPanel";
 import { useChessGameStore } from "../../stores/chessGameStore";
 import { PromotionModal } from "../../components/game/PromotionModal";
+import { useBreakpoint } from "../../context/BreakpointContext";
 
 // Sound files
 const MOVE_SOUND_SRC = "/move-sound.wav";
@@ -56,6 +50,7 @@ export function HumanVsHumanV2() {
   const [game] = useState(new Chess());
   const { sendMessage, lastMessage } = useWebSocketContext();
   const { publicKey } = useWallet();
+  const { isMobile } = useBreakpoint();
 
   // Sound references
   const moveSoundRef = useRef<HTMLAudioElement | null>(null);
@@ -404,59 +399,75 @@ export function HumanVsHumanV2() {
   }, [isSpectator, gameId, sendMessage, updateGameState]);
 
   // --- Check if move is a pawn promotion ---
-  const isPromotionMove = useCallback((from: string, to: string): boolean => {
-    try {
-      const piece = game.get(from as Square);
-      if (!piece || piece.type !== "p") return false;
+  const isPromotionMove = useCallback(
+    (from: string, to: string): boolean => {
+      try {
+        const piece = game.get(from as Square);
+        if (!piece || piece.type !== "p") return false;
 
-      const toRank = to[1];
-      return (piece.color === "w" && toRank === "8") || (piece.color === "b" && toRank === "1");
-    } catch {
-      return false;
-    }
-  }, [game]);
+        const toRank = to[1];
+        return (
+          (piece.color === "w" && toRank === "8") ||
+          (piece.color === "b" && toRank === "1")
+        );
+      } catch {
+        return false;
+      }
+    },
+    [game]
+  );
 
   // --- Handle Promotion Piece Selection ---
-  const handlePromotionSelect = useCallback((piece: "q" | "r" | "b" | "n") => {
-    if (!pendingPromotion || !gameId) return;
+  const handlePromotionSelect = useCallback(
+    (piece: "q" | "r" | "b" | "n") => {
+      if (!pendingPromotion || !gameId) return;
 
-    try {
-      const initialFen = game.fen();
-      const move = game.move({
-        from: pendingPromotion.from,
-        to: pendingPromotion.to,
-        promotion: piece,
-      });
+      try {
+        const initialFen = game.fen();
+        const move = game.move({
+          from: pendingPromotion.from,
+          to: pendingPromotion.to,
+          promotion: piece,
+        });
 
-      if (move) {
-        const moveMessage: IWSMoveMessage = {
-          type: WebSocketMessageTypeEnum.Move,
-          gameId,
-          fen: game.fen(),
-          initialFen,
-          walletAddress: walletAddress!,
-          move: `${move.from}${move.to}${piece}`, // Include promotion piece
-        };
+        if (move) {
+          const moveMessage: IWSMoveMessage = {
+            type: WebSocketMessageTypeEnum.Move,
+            gameId,
+            fen: game.fen(),
+            initialFen,
+            walletAddress: walletAddress!,
+            move: `${move.from}${move.to}${piece}`, // Include promotion piece
+          };
 
-        sendMessage(JSON.stringify(moveMessage));
-        setIsMovePending(true);
+          sendMessage(JSON.stringify(moveMessage));
+          setIsMovePending(true);
 
-        if (moveHighlightTimeoutRef.current) {
-          clearTimeout(moveHighlightTimeoutRef.current);
+          if (moveHighlightTimeoutRef.current) {
+            clearTimeout(moveHighlightTimeoutRef.current);
+          }
         }
+      } catch (error) {
+        console.error("Promotion move error:", error);
+        toast.error("Invalid promotion move!");
+        setIsMovePending(false);
+      } finally {
+        setPendingPromotion(null);
+        updateGameState({
+          selectedSquare: null,
+          validMoves: [],
+        });
       }
-    } catch (error) {
-      console.error("Promotion move error:", error);
-      toast.error("Invalid promotion move!");
-      setIsMovePending(false);
-    } finally {
-      setPendingPromotion(null);
-      updateGameState({
-        selectedSquare: null,
-        validMoves: [],
-      });
-    }
-  }, [pendingPromotion, gameId, game, walletAddress, sendMessage, updateGameState]);
+    },
+    [
+      pendingPromotion,
+      gameId,
+      game,
+      walletAddress,
+      sendMessage,
+      updateGameState,
+    ]
+  );
 
   const handleSquareClick = useCallback(
     (square: Square) => {
@@ -815,11 +826,6 @@ export function HumanVsHumanV2() {
   const [showChat, setShowChat] = useState(false);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
 
-  const timeRemaining =
-    gameState.playerTurn === "w"
-      ? gameState.whitePlayerTimerInMilliseconds
-      : gameState.blackPlayerTimerInMilliseconds;
-
   const getCapturedPieces = (color: string) =>
     gameState.capturedPieces?.[color === "w" ? "b" : "w"] || [];
 
@@ -901,7 +907,7 @@ export function HumanVsHumanV2() {
 
   return (
     <div className="min-h-screen max-h-screen bg-gradient-to-br from-gray-900 via-purple-950 to-black text-white ">
-      {/* Chat Dropdown Overlay: Spectators see chat as read-only or hidden if not allowed */}
+      {/* Chat Dropdown Modal start */}
       <ChatDropdown
         gameId={String(gameId)}
         walletAddress={String(walletAddress)}
@@ -910,106 +916,149 @@ export function HumanVsHumanV2() {
         onUnreadMessage={setUnreadMessagesCount}
         readOnly={isSpectator} // Pass readOnly prop for spectators
       />
-      {/* Background effects */}
-      <div className="fixed inset-0 z-0">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-amber-600/10 rounded-full filter blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-800/10 rounded-full filter blur-3xl" />
-      </div>
+      {/* Chat Dropdown Modal end */}
+
+      {/* Promotion Modal start */}
+      <PromotionModal
+        isOpen={!!pendingPromotion}
+        playerColor={stablePlayerColor}
+        onPieceSelect={handlePromotionSelect}
+      />
+      {/* Promotion Modal end */}
+
+      {/* Resign Dialog start */}
+      <AlertDialog open={showResignDialog} onOpenChange={setShowResignDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Resignation</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to resign? This will end the game and your
+              opponent will be declared the winner.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => setShowResignDialog(false)}
+              className="cursor-pointer"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleResign}
+              autoFocus
+              className="cursor-pointer"
+            >
+              Yes, Resign
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      {/* Resign Dialog end */}
+
+      {/* Draw Dialog start */}
+      <AlertDialog open={showDrawDialog} onOpenChange={setShowDrawDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Offer Draw</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to offer a draw? If your opponent accepts,
+              the game will end as a draw.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => setShowDrawDialog(false)}
+              className="cursor-pointer"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDrawOffer}
+              autoFocus
+              className="cursor-pointer"
+            >
+              Yes, Offer Draw
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      {/* Draw Dialog end */}
+
       {/* Content */}
-      <div className="relative z-10 container mx-auto px-2 sm:px-4 py-2 sm:py-4 flex flex-col h-[100dvh]">
-        {/* Header - More compact with timer in the center */}
-        <div className="flex-none flex items-center justify-between mb-1">
+      <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-4 flex flex-col max-h-[100vh] min-h-[calc(100vh-100px)]">
+        {/* Header start */}
+        <div
+          className={`relative w-full flex items-center justify-between mb-1 ${
+            isMobile ? "mt-2" : ""
+          }`}
+        >
           <Button
             variant="ghost"
             onClick={() => navigate("/games")}
-            className="text-gray-300  p-2 h-auto"
+            className="flex items-center text-gray-300 p-2 h-auto space-x-2"
             size="sm"
           >
             <ArrowLeft className="w-5 h-5" />
+            <span>Back</span>
           </Button>
 
-          <div className="flex-1 text-center">
-            <span className="text-sm sm:text-base font-medium text-white/90">
-              {gameState.gameStatus}
-            </span>
-          </div>
-        </div>
-
-        {/* Players Panel - Side by side with VS */}
-        <div className="flex-none flex items-center justify-between gap-4 mb-2">
-          <div className="w-full sm:w-auto sm:flex-1 min-w-0">
-            <PlayerPanel color="b" />
-          </div>
-          <div className="flex flex-col items-center justify-center py-2">
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="text-2xl sm:text-3xl font-bold text-amber-500 bg-gradient-to-r from-amber-500 to-orange-600 bg-clip-text  drop-shadow-lg"
-            >
-              VS
-            </motion.div>
-            <div className="bg-gray-950/40 rounded-lg sm:rounded-xl px-2 py-1.5 sm:px-4 sm:py-2 shadow-inner mt-2">
-              <span
-                className={`font-mono font-bold text-base sm:text-lg ${
-                  timeRemaining <= 30000 ? "text-red-500" : "text-white"
-                }`}
-              >
-                {formatTime(timeRemaining)}
+          <div className="absolute left-1/2 transform -translate-x-1/2">
+            <div className="backdrop-blur-md bg-white/10 border border-white/20 rounded-xl shadow-lg px-4 py-2 text-center">
+              <span className="text-sm sm:text-base text-center font-medium text-white/90">
+                {gameState.gameStatus}
               </span>
             </div>
           </div>
-          <div className="w-full sm:w-auto sm:flex-1 min-w-0">
-            <PlayerPanel color="w" />
+        </div>
+        {/* Header end */}
+
+        {/* Players Panel start */}
+        {isMobile ? (
+          <div className="flex flex-col items-center justify-center mt-2">
+            <div className="w-full">
+              <PlayerPanel color="b" />
+            </div>
+            <div className="mt-2 w-full">
+              <PlayerPanel color="w" />
+            </div>
+          </div>
+        ) : (
+          // Desktop
+          <div className="flex-none flex items-center justify-between gap-4 mt-2">
+            <div className="w-full sm:w-auto sm:flex-1 min-w-0">
+              <PlayerPanel color="b" />
+            </div>
+            <div className="w-full sm:w-auto sm:flex-1 min-w-0">
+              <PlayerPanel color="w" />
+            </div>
+          </div>
+        )}
+        {/* Players Panel end */}
+
+        {/* chess board start */}
+        <div className="flex-1 flex flex-col justify-center min-h-0 gap-1 sm:gap-2">
+          <div className="flex-none flex justify-center h-6 sm:h-8">
+            {renderCapturedPieces(gameState.playerColor == "b" ? "w" : "b")}
+          </div>
+
+          <div className="flex-none w-full max-w-[min(90vw,50vh,500px)] aspect-square mx-auto">
+            {renderBoard()}
+          </div>
+
+          <div className="flex-none flex justify-center h-6 sm:h-8">
+            {renderCapturedPieces(gameState.playerColor == "w" ? "w" : "b")}
           </div>
         </div>
+        {/* chess board end */}
 
-        {/* Main Game Area - Centered Chess Board */}
-        <div className="flex-1 flex flex-col justify-between min-h-0 overflow-hidden">
-          <AnimatePresence>
-            {gameState.winner && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                className="absolute inset-0 flex items-center justify-center z-30 bg-black/80 rounded-xl backdrop-blur-sm"
-              >
-                <div className="text-center p-4 sm:p-8">
-                  <Trophy className="w-12 h-12 sm:w-16 sm:h-16 text-yellow-400 mx-auto mb-3 sm:mb-4" />
-                  <h2 className="text-lg sm:text-2xl font-bold mb-3 sm:mb-4">
-                    {gameState.gameStatus}
-                  </h2>
-                  <Button
-                    onClick={() => navigate("/games")}
-                    className="bg-gradient-to-r from-amber-500 to-orange-600 text-sm"
-                  >
-                    Back to Lobby
-                  </Button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Chess Board with captured pieces - Using flex to distribute space */}
-          <div className="flex-1 flex flex-col justify-center min-h-0 gap-1 sm:gap-2">
-            <div className="flex-none flex justify-center h-6 sm:h-8">
-              {renderCapturedPieces(gameState.playerColor == "b" ? "w" : "b")}
-            </div>
-
-            <div className="flex-none w-full max-w-[min(90vw,50vh,500px)] aspect-square mx-auto">
-              {renderBoard()}
-            </div>
-
-            <div className="flex-none flex justify-center h-6 sm:h-8">
-              {renderCapturedPieces(gameState.playerColor == "w" ? "w" : "b")}
-            </div>
-          </div>
-
-          {/* Game action buttons - Fixed at bottom with proper spacing */}
-          {!isSpectator && !gameState.isEnded && (
-            <div className="flex-none flex justify-center items-start gap-8 mt-2 sm:mt-4 mb-1">
+        {/* Game action buttons start */}
+        {!isSpectator && !gameState.isEnded && (
+          <div className="flex justify-center items-center mt-2 sm:mt-4 mb-1">
+            <div className="bg-gray-900/80 rounded-full flex items-center px-4 py-2 space-x-4 shadow-lg border border-white/10">
               <Button
+                className="flex items-center space-x-2 cursor-pointer bg-transparent hover:bg-transparent"
                 onClick={() => setShowChat(true)}
-                className="relative bg-gray-900/80 hover:bg-gray-800/80 rounded-full w-[72px] h-[72px] flex flex-col items-center justify-center shadow-lg border border-white/10 cursor-pointer"
+                disabled={false}
               >
                 {unreadMessagesCount > 0 && (
                   <span
@@ -1019,80 +1068,34 @@ export function HumanVsHumanV2() {
                     {unreadMessagesCount}
                   </span>
                 )}
-                <MessageCircle className="w-6 h-6 mb-1" />
-                <span className="text-xs">Chat</span>
+                <MessageCircle className="w-5 h-5" />
+                <span>Chat</span>
               </Button>
 
-              <AlertDialog
-                open={showResignDialog}
-                onOpenChange={setShowResignDialog}
-              >
-                <AlertDialogTrigger asChild>
-                  <Button className="bg-gray-900/80 hover:bg-gray-800/80 rounded-full w-[72px] h-[72px] flex flex-col items-center justify-center shadow-lg border border-white/10 cursor-pointer">
-                    <Flag className="w-6 h-6 mb-1" />
-                    <span className="text-xs">Resign</span>
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Confirm Resignation</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Are you sure you want to resign? This will end the game
-                      and your opponent will be declared the winner.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel
-                      onClick={() => setShowResignDialog(false)}
-                    >
-                      Cancel
-                    </AlertDialogCancel>
-                    <AlertDialogAction onClick={handleResign} autoFocus>
-                      Yes, Resign
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              <div className="h-6 border-r border-white/20"></div>
 
-              <AlertDialog
-                open={showDrawDialog}
-                onOpenChange={setShowDrawDialog}
+              <Button
+                className="flex items-center space-x-2 cursor-pointer bg-transparent hover:bg-transparent"
+                onClick={() => setShowResignDialog(true)}
               >
-                <AlertDialogTrigger asChild>
-                  <Button className="bg-gray-900/80 hover:bg-gray-800/80 rounded-full w-[72px] h-[72px] flex flex-col items-center justify-center shadow-lg border border-white/10 cursor-pointer">
-                    <HandshakeIcon className="w-6 h-6 mb-1" />
-                    <span className="text-xs">Draw</span>
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Offer Draw</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Are you sure you want to offer a draw? If your opponent
-                      accepts, the game will end as a draw.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel onClick={() => setShowDrawDialog(false)}>
-                      Cancel
-                    </AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDrawOffer} autoFocus>
-                      Yes, Offer Draw
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+                <Flag className="w-5 h-5" />
+                <span>Resign</span>
+              </Button>
+
+              <div className="h-6 border-r border-white/20"></div>
+
+              <Button
+                className="flex items-center space-x-2 cursor-pointer bg-transparent hover:bg-transparent"
+                onClick={() => setShowDrawDialog(true)}
+              >
+                <HandshakeIcon className="w-5 h-5" />
+                <span>Draw</span>
+              </Button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+        {/* Game action buttons end */}
       </div>
-
-      {/* --- Promotion Modal --- */}
-      <PromotionModal
-        isOpen={!!pendingPromotion}
-        playerColor={stablePlayerColor}
-        onPieceSelect={handlePromotionSelect}
-      />
     </div>
   );
 }

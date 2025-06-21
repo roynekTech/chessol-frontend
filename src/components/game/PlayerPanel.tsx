@@ -3,6 +3,7 @@ import { Color } from "chess.js";
 import { Avatar, AvatarFallback } from "../ui/avatar";
 import { LocalStorageRoomTypeEnum } from "../../utils/type";
 import { helperUtil } from "../../utils/helper";
+import { formatTime } from "../../utils/chessUtils";
 
 export function PlayerPanel({ color }: { color: Color }) {
   const gameState = useChessGameStore((state) => state.gameState);
@@ -42,54 +43,67 @@ export function PlayerPanel({ color }: { color: Color }) {
   }
 
   return (
-    <div className="flex flex-col items-center w-full">
-      {/* Player Info Card */}
-      <div className="w-full px-2 py-2 sm:px-4 sm:py-3">
-        <div className="flex-col md:flex-row items-center justify-between">
-          {/* Avatar and Name */}
-          <div className="flex-col md:flex-row justify-center items-center gap-2 sm:gap-3">
-            <Avatar
-              className={`w-10 h-10 sm:w-12 sm:h-12 ${
-                isPlayer && !isSpectator ? "ring-2 ring-amber-500" : ""
-              } mx-auto`}
-            >
-              <img
-                src={`https://api.dicebear.com/7.x/adventurer-neutral/svg?seed=${encodeURIComponent(
-                  playerObject.name
-                )}`}
-                alt={playerObject.name}
-                className="w-full h-full object-cover rounded-full"
-                draggable={false}
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = "none";
-                }}
-              />
-              <AvatarFallback
-                className={`${
-                  isPlayer && !isSpectator
-                    ? "bg-amber-700 text-base sm:text-lg"
-                    : "bg-gray-700 text-base sm:text-lg"
-                } text-center`}
-              >
-                {playerObject.name[0]}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex flex-col mt-2">
-              <div className="flex items-center gap-1.5 sm:gap-2 text-center justify-center">
-                <span className="font-bold text-sm sm:text-lg text-white">
-                  {playerObject.name}
-                </span>
-                {isPlayer && !isSpectator && (
-                  <span className="text-xs bg-amber-600/30 border border-amber-600/50 px-1 py-0.5 sm:px-1.5 rounded-full">
-                    You
-                  </span>
-                )}
-              </div>
-              <span className="text-xs sm:text-sm text-gray-400 text-center">
-                {color === "w" ? "White" : "Black"}
-              </span>
-            </div>
-          </div>
+    <div className="flex items-center w-full bg-gray-900/40 rounded-xl p-2 sm:p-3 space-x-3">
+      {/* Avatar */}
+      <Avatar
+        className={`w-12 h-12 sm:w-14 sm:h-14 ${
+          isPlayer && !isSpectator ? "ring-2 ring-amber-500" : ""
+        }`}
+      >
+        <img
+          src={`https://api.dicebear.com/7.x/adventurer-neutral/svg?seed=${encodeURIComponent(
+            playerObject.name
+          )}`}
+          alt={playerObject.name}
+          className="w-full h-full object-cover rounded-full"
+          draggable={false}
+          onError={(e) => {
+            (e.target as HTMLImageElement).style.display = "none";
+          }}
+        />
+        <AvatarFallback
+          className={`${
+            isPlayer && !isSpectator
+              ? "bg-amber-700 text-base sm:text-lg"
+              : "bg-gray-700 text-base sm:text-lg"
+          } text-center`}
+        >
+          {playerObject.name[0]}
+        </AvatarFallback>
+      </Avatar>
+
+      {/* Player Info */}
+      <div className="flex-1 flex flex-col justify-center">
+        <div className="flex items-center gap-2">
+          <span className="font-bold text-sm sm:text-base text-white">
+            {playerObject.name}
+          </span>
+          {isPlayer && !isSpectator && (
+            <span className="text-xs bg-amber-600/30 border border-amber-600/50 px-1.5 py-0.5 rounded-full">
+              You
+            </span>
+          )}
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-xs sm:text-sm text-gray-400">
+            {color === "w" ? "White" : "Black"}
+          </span>
+          <span
+            className={`font-mono font-bold text-sm sm:text-base px-2 py-0.5 rounded-lg bg-gray-950/40 ${
+              (color === "w"
+                ? gameState.whitePlayerTimerInMilliseconds
+                : gameState.blackPlayerTimerInMilliseconds) <= 30000
+                ? "text-red-500"
+                : "text-white"
+            }`}
+            aria-label={`${color === "w" ? "White" : "Black"} timer`}
+          >
+            {formatTime(
+              color === "w"
+                ? gameState.whitePlayerTimerInMilliseconds
+                : gameState.blackPlayerTimerInMilliseconds
+            )}
+          </span>
         </div>
       </div>
     </div>
