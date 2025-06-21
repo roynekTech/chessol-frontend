@@ -8,7 +8,7 @@ export interface ITournament {
   date: string;
   status: "upcoming" | "active" | "completed";
   link?: string;
-  isBet?: boolean;
+  isBet?: number;
   configuration?: {
     mode: "bullet" | "blitz" | "rapid" | "classical";
     max_rounds: number;
@@ -17,8 +17,8 @@ export interface ITournament {
     numberOfGames?: number;
     resignationTime?: number | null;
     abortTimeout?: number | null;
+    paymentAmount?: number;
   };
-  paymentAmount?: number;
   starterScore?: number;
 }
 

@@ -244,6 +244,73 @@ Response:
 }
 ```
 
+### Get Tournament Details - Get details of a specific tournament
+
+**Endpoint:**
+
+```
+GET /tournament/:unique_hash
+```
+
+**Example Request:**
+
+```bash
+curl http://localhost:3000/chesssol/backend/tournament/7d05ee6b-f555-47d0-b444-046b0c1965be
+```
+
+**Response:**
+
+```json
+{
+  "status": true,
+  "error": null,
+  "msg": "Tournament retrieved successfully",
+  "tournament": {
+    "tournmt_id": 1,
+    "name": "Community Chess Cup",
+    "description": "Monthly community tournament",
+    "link": "https://chess-tournament.com",
+    "socials": "https://twitter.com/demo",
+    "totalPlayers": 16,
+    "wallets": {
+      "0x742d35Cc6634C0532925a3b844Bc454e4438f44e": {
+        "nickname": "ChessMaster"
+      }
+    },
+    "status": "upcoming",
+    "isBet": 0,
+    "configuration": {
+      "mode": "fast",
+      "max_rounds": 5
+    },
+    "starterScore": 100,
+    "scoring": {
+      "0x742d35Cc6634C0532925a3b844Bc454e4438f44e": 100
+    },
+    "unique_hash": "7d05ee6b-f555-47d0-b444-046b0c1965be",
+    "date": "2025-05-10T00:00:00.000Z"
+  }
+}
+```
+
+**Error Response:**
+
+```json
+{
+  "status": "fail",
+  "error": true,
+  "msg": "Tournament not found",
+  "insertId": null,
+  "insertHash": null
+}
+```
+
+**Notes:**
+
+- The `unique_hash` parameter is required and must match an existing tournament.
+- All fields in the `tournament` object are as described in the create/list endpoints.
+- Always check the `status` field before using the data.
+
 ## Error Response Format
 
 All endpoints return errors in this format:

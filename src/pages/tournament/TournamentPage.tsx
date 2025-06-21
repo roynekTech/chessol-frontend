@@ -79,7 +79,8 @@ export function TournamentPage() {
   };
 
   if (uniqueHash) {
-    return <TournamentDetails uniqueHash={uniqueHash} />;
+    console.log('unique hash provided:', uniqueHash);
+    return <TournamentDetails />;
   }
 
   return (

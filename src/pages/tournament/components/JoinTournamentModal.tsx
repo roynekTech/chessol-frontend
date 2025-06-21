@@ -64,7 +64,9 @@ export const JoinTournamentModal: FC<JoinTournamentModalProps> = ({
         transactionSignature:
           tournament.isBet === 1 ? transactionSignature : undefined,
         paymentAmount:
-          tournament.isBet === 1 ? tournament.paymentAmount : undefined,
+          tournament.isBet === 1
+            ? tournament.configuration?.paymentAmount
+            : undefined,
       };
 
       joinTournament(joinData, {
@@ -205,8 +207,8 @@ export const JoinTournamentModal: FC<JoinTournamentModalProps> = ({
                 />
                 <p className="text-xs text-amber-500/70 flex items-center gap-1.5">
                   <DollarSign className="h-3 w-3" />
-                  Entry fee: {tournament.paymentAmount} SOL. Please complete the
-                  payment before submitting.
+                  Entry fee: {tournament.configuration?.paymentAmount} SOL.
+                  Please complete the payment before submitting.
                 </p>
               </motion.div>
             )}
