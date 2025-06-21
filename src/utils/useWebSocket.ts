@@ -42,6 +42,9 @@ export function useWebSocket(
   url = defaultWebsocketUrl
 ) {
   const [lastMessage, setLastMessage] = useState<WebSocketMessage | null>(null);
+  const [connectionState, setConnectionState] = useState<
+    "connecting" | "open" | "closing" | "closed" | "reconnecting"
+  >("connecting");
   const wsRef = useRef<ReconnectingWebSocket | null>(null);
 
   // Send message function
@@ -61,19 +64,26 @@ export function useWebSocket(
     // Track if this is a reconnect (open after close)
     let wasClosed = false;
 
+    setConnectionState("connecting");
+
     ws.addEventListener("open", (event: RwsEvent) => {
+      setConnectionState("open");
       // If this is a reconnect (not the first open), call onReconnect
       if (wasClosed && options.onReconnect) {
+        setConnectionState("reconnecting");
         options.onReconnect(ws);
+        setConnectionState("open");
       }
       wasClosed = false;
       options.onOpen?.(event);
     });
     ws.addEventListener("close", (event: RwsCloseEvent) => {
       wasClosed = true;
+      setConnectionState("closed");
       options.onClose?.(event);
     });
     ws.addEventListener("error", (event: RwsErrorEvent) => {
+      setConnectionState("closed");
       options.onError?.(event);
     });
     ws.addEventListener("message", (event: MessageEvent) => {
@@ -86,8 +96,16 @@ export function useWebSocket(
     return () => {
       ws.close();
     };
-    // Only re-run if url or protocols change
-  }, [url, JSON.stringify(options.protocols)]);
+    // Re-run if url or any handler/protocols change
+  }, [
+    url,
+    JSON.stringify(options.protocols),
+    options.onMessage,
+    options.onOpen,
+    options.onClose,
+    options.onError,
+    options.onReconnect,
+  ]);
 
-  return { sendMessage, lastMessage, ws: wsRef.current };
+  return { sendMessage, lastMessage, ws: wsRef.current, connectionState };
 }
