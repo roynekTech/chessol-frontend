@@ -53,24 +53,25 @@ export function Lobby() {
   const gameState = useChessGameStore((state) => state.gameState);
 
   // Fetch game state periodically
-  useGetData<IGetGameDataMemResponse>(
+  const { data: gameDetails } = useGetData<IGetGameDataMemResponse>(
     API_PATHS.getInMemGameDetails(gameId),
     ["gameDetails", gameId],
     {
       enabled: !!gameId,
-      refetchInterval: 3000, // Poll every 3 seconds
-      onSuccess: (data: IGetGameDataMemResponse) => {
-        // Check if game is active/running and redirect if needed
-        if (
-          data?.game_state === GameStateEnum.Active ||
-          data?.game_state === GameStateEnum.Running ||
-          data?.game_state === GameStateEnum.Joined
-        ) {
-          navigate(PAGE_ROUTES.GamePlay);
-        }
-      },
+      refetchInterval: 3000,
     }
   );
+
+  if (gameDetails) {
+    console.log("Game data received:", gameDetails);
+    if (
+      gameDetails?.game_state === GameStateEnum.Active ||
+      gameDetails?.game_state === GameStateEnum.Running ||
+      gameDetails?.game_state === GameStateEnum.Joined
+    ) {
+      navigate(PAGE_ROUTES.GamePlay);
+    }
+  }
 
   // Fetch game details from localStorage and set a random tip and game ID
   useEffect(() => {
