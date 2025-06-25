@@ -39,6 +39,7 @@ import { LoaderWithInnerLoader } from "../../components/Loader";
 import { PlayerPanel } from "../../components/game/PlayerPanel";
 import { useChessGameStore } from "../../stores/chessGameStore";
 import { PromotionModal } from "../../components/game/PromotionModal";
+import { VictoryOverlay } from "../../components/game/VictoryOverlay";
 import { useBreakpoint } from "../../context/BreakpointContext";
 
 // Sound files
@@ -983,6 +984,14 @@ export function HumanVsHumanV2() {
         </AlertDialogContent>
       </AlertDialog>
       {/* Draw Dialog end */}
+
+      {/* Victory Overlay */}
+      <VictoryOverlay
+        isVisible={gameState.isEnded}
+        winner={gameState.winner}
+        playerColor={stablePlayerColor}
+        gameStatus={gameState.gameStatus}
+      />
 
       {/* Content */}
       <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-4 flex flex-col max-h-[100vh] min-h-[calc(100vh-100px)]">
