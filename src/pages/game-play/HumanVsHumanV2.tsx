@@ -1065,13 +1065,13 @@ export function HumanVsHumanV2() {
           <div className="flex justify-center items-center mt-2 sm:mt-4 mb-1">
             <div className="bg-gray-900/80 rounded-full flex items-center px-4 py-2 space-x-4 shadow-lg border border-white/10">
               <Button
-                className="flex items-center space-x-2 cursor-pointer bg-transparent hover:bg-transparent"
+                className="relative flex items-center space-x-2 cursor-pointer bg-transparent hover:bg-transparent"
                 onClick={() => setShowChat(true)}
                 disabled={false}
               >
                 {unreadMessagesCount > 0 && (
                   <span
-                    className="absolute -top-1 -right-1 min-w-[22px] h-[22px] flex items-center justify-center bg-red-500 text-white text-xs font-bold rounded-full shadow-lg z-10 px-1.5"
+                    className="absolute top-1 -left-1 min-w-[15px] h-[15px] flex items-center justify-center bg-red-500 text-white text-xs font-bold rounded-full shadow-lg z-10 px-1.5"
                     aria-label={`${unreadMessagesCount} unread messages`}
                   >
                     {unreadMessagesCount}

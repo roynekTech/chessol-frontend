@@ -5,6 +5,8 @@ import { localStorageHelper } from "../utils/localStorageHelper";
 import {
   LocalStorageKeysEnum,
   IWSPairedMessage,
+  IGetGameDataMemResponse,
+  GameStateEnum,
 } from "../utils/type";
 import { useNavigate } from "react-router-dom";
 import { useWebSocketContext } from "../context/useWebSocketContext";
@@ -23,8 +25,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { PAGE_ROUTES } from "../utils/constants";
+import { PAGE_ROUTES, API_PATHS } from "../utils/constants";
 import { useChessGameStore } from "../stores/chessGameStore";
+import { useGetData } from "../utils/use-query-hooks";
 
 // Array of chess tips/facts for engagement
 const CHESS_TIPS = [
@@ -48,6 +51,26 @@ export function Lobby() {
   const navigate = useNavigate();
   const { lastMessage } = useWebSocketContext();
   const gameState = useChessGameStore((state) => state.gameState);
+
+  // Fetch game state periodically
+  useGetData<IGetGameDataMemResponse>(
+    API_PATHS.getInMemGameDetails(gameId),
+    ["gameDetails", gameId],
+    {
+      enabled: !!gameId,
+      refetchInterval: 3000, // Poll every 3 seconds
+      onSuccess: (data: IGetGameDataMemResponse) => {
+        // Check if game is active/running and redirect if needed
+        if (
+          data?.game_state === GameStateEnum.Active ||
+          data?.game_state === GameStateEnum.Running ||
+          data?.game_state === GameStateEnum.Joined
+        ) {
+          navigate(PAGE_ROUTES.GamePlay);
+        }
+      },
+    }
+  );
 
   // Fetch game details from localStorage and set a random tip and game ID
   useEffect(() => {

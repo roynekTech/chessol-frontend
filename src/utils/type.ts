@@ -15,6 +15,7 @@ export enum GameStateEnum {
   Active = "active",
   Abandoned = "abandoned",
   Draw = "draw",
+  Joined = "joined",
 }
 
 export enum WebSocketMessageTypeEnum {
