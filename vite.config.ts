@@ -12,8 +12,7 @@ export default defineConfig({
     },
   },
   define: {
-    // Add global Buffer for browser environment
-    global: {},
+    Buffer: ["buffer", "Buffer"],
     "process.env": {},
   },
   optimizeDeps: {
