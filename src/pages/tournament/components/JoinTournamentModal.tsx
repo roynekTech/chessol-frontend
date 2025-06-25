@@ -108,9 +108,7 @@ export const JoinTournamentModal: FC<JoinTournamentModalProps> = ({
         `Join tournament: ${tournament.unique_hash}`
       );
       const signature = await signMessage(message);
-      // Convert Uint8Array to base64 using btoa
-      const base64Signature = btoa(String.fromCharCode(...signature));
-      setTransactionSignature(base64Signature);
+      setTransactionSignature(Buffer.from(signature).toString("base64"));
       setHasSigned(true);
     } catch (err) {
       setError(

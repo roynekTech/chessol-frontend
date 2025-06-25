@@ -32,8 +32,18 @@ function App() {
       ? WalletAdapterNetwork.Mainnet
       : WalletAdapterNetwork.Devnet;
 
-  // You can also provide a custom RPC endpoint.
-  const endpoint = useMemo(() => clusterApiUrl(network), [network]);
+  // Custom RPC endpoint configuration
+  const endpoint = useMemo(() => {
+    if (network === WalletAdapterNetwork.Mainnet) {
+      // Use custom RPC for mainnet
+      return (
+        import.meta.env.VITE_MAINNET_RPC_URL ||
+        "https://mainnet.helius-rpc.com/?api-key=645b30bd-291d-4827-9e0d-d1001a286fe2"
+      );
+    }
+    // Use default devnet endpoint
+    return clusterApiUrl(network);
+  }, [network]);
 
   const wallets = useMemo(() => [new UnsafeBurnerWalletAdapter()], [network]);
 
