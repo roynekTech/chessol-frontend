@@ -12,14 +12,12 @@ export default defineConfig({
     },
   },
   define: {
-    Buffer: ["buffer", "Buffer"],
     "process.env": {},
   },
   optimizeDeps: {
     esbuildOptions: {
       define: {
         global: "globalThis",
-        Buffer: "Buffer",
       },
     },
   },
