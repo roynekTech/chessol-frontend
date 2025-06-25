@@ -30,6 +30,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { ESCROW_ADDRESS } from "../../../utils/constants";
+import { Buffer } from "buffer";
 
 interface JoinTournamentModalProps {
   tournament: ITournament;

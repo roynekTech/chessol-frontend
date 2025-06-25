@@ -11,7 +11,6 @@ import {
 import { WalletAdapterNetwork } from "@solana/wallet-adapter-base";
 import { UnsafeBurnerWalletAdapter } from "@solana/wallet-adapter-wallets";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
-import { clusterApiUrl } from "@solana/web3.js";
 import "@solana/wallet-adapter-react-ui/styles.css";
 import { useMemo } from "react";
 import { Lobby } from "./pages/Lobby";
@@ -22,6 +21,7 @@ import { Layout } from "./components/Layout";
 import { NotFound } from "./pages/NotFound";
 import { PAGE_ROUTES } from "./utils/constants";
 import { NewLandingPage } from "./pages/LandingPageNew";
+import { clusterApiUrl } from "@solana/web3.js";
 
 const queryClient = new QueryClient();
 
@@ -38,10 +38,10 @@ function App() {
       // Use custom RPC for mainnet
       return (
         import.meta.env.VITE_MAINNET_RPC_URL ||
-        "https://mainnet.helius-rpc.com/?api-key=645b30bd-291d-4827-9e0d-d1001a286fe2"
+        "https://dry-ancient-lambo.solana-mainnet.quiknode.pro/ed2362f2fb7c1337b00e81d6863eb929d0db2b2e/"
       );
     }
-    // Use default devnet endpoint
+
     return clusterApiUrl(network);
   }, [network]);
 
