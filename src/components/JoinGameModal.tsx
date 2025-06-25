@@ -104,7 +104,9 @@ export function JoinGameModal({ open, onOpenChange }: IJoinGameModalProps) {
       const signature = await sendTransaction(transaction, connection);
       // wait for confirmation of transaction
       await connection.confirmTransaction(signature, "confirmed");
-      return signature;
+      // Convert signature to base64
+      const base64Signature = btoa(signature);
+      return base64Signature;
     } catch (err: unknown) {
       console.error("Error sending bet transaction:", err);
 
