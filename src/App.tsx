@@ -34,8 +34,7 @@ function App() {
 
   // Custom RPC endpoint configuration
   const endpoint = useMemo(() => {
-    const mainnetRpcUrl =
-      "https://mainnet.helius-rpc.com/?api-key=645b30bd-291d-4827-9e0d-d1001a286fe2";
+    const mainnetRpcUrl = import.meta.env.VITE_MAINNET_RPC_URL;
 
     if (network === WalletAdapterNetwork.Mainnet) {
       return mainnetRpcUrl;
