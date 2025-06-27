@@ -34,12 +34,11 @@ function App() {
 
   // Custom RPC endpoint configuration
   const endpoint = useMemo(() => {
+    const mainnetRpcUrl =
+      "https://mainnet.helius-rpc.com/?api-key=645b30bd-291d-4827-9e0d-d1001a286fe2";
+
     if (network === WalletAdapterNetwork.Mainnet) {
-      // Use custom RPC for mainnet
-      return (
-        import.meta.env.VITE_MAINNET_RPC_URL ||
-        "https://dry-ancient-lambo.solana-mainnet.quiknode.pro/ed2362f2fb7c1337b00e81d6863eb929d0db2b2e/"
-      );
+      return mainnetRpcUrl;
     }
 
     return clusterApiUrl(network);
